@@ -15,6 +15,11 @@ app.get("/", (_, res) => {
   });
 });
 
+import { errorHandler } from "./middlewares/error.middleware";
+
+// Global Error Handler should be the last middleware
+app.use(errorHandler);
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
