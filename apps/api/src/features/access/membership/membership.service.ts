@@ -1,7 +1,7 @@
-import { db } from "../../../db";
-import { MembershipTable } from "../../../db/membership.schema";
-import { UserTable } from "../../../db/user.schema";
-import { ApiError } from "../../../shared/utils/ApiError";
+import { db } from "@/db";
+import { MembershipTable } from "@/db/membership.schema";
+import { UserTable } from "@/db/user.schema";
+import { ApiError } from "@/shared/utils/ApiError";
 import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {

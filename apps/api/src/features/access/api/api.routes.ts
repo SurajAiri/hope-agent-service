@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { ApiController } from "./api.controller";
-import { validate } from "../../../middlewares/validate.middleware";
-import { authMiddleware } from "../../../middlewares/auth.middleware";
-import { requireOrganizationRole } from "../../../middlewares/org.middleware";
+import { validate } from "@/middlewares/validate.middleware";
+import { authMiddleware } from "@/middlewares/auth.middleware";
+import { requireOrganizationRole } from "@/middlewares/org.middleware";
 import { createApiKeySchema } from "./api.validation";
 
 const router = Router({ mergeParams: true });

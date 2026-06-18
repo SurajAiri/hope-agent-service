@@ -1,162 +1,185 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Card } from "@/components/ui/Card"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { Modal } from "@/components/ui/Modal"
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { useAppStore } from "@/lib/store"
-import { api } from "@/lib/api"
-import { UserPlus, Mail, Shield, Trash2, Loader2, Clock } from "lucide-react"
-import { toast } from "sonner"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useAppStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import { UserPlus, Mail, Shield, Trash2, Loader2, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MembersPage() {
-  const { user, organizations, selectedOrgId } = useAppStore()
-  const org = organizations.find(o => o.id === selectedOrgId)
-  
-  const [members, setMembers] = useState<any[]>([])
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false)
-  
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [email, setEmail] = useState("")
-  const [role, setRole] = useState("member")
-  const [isInviting, setIsInviting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { user, organizations, selectedOrgId } = useAppStore();
+  const org = organizations.find((o) => o.id === selectedOrgId);
 
-  const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
-  const [isRemoving, setIsRemoving] = useState(false)
+  const [members, setMembers] = useState<any[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("member");
+  const [isInviting, setIsInviting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   // Current user's role in this org directly from state (fixes missing button bug)
-  const currentUserRole = org?.role || "member"
+  const currentUserRole = org?.role || "member";
 
   useEffect(() => {
     if (org && currentUserRole === "member") {
-      window.location.href = "/dashboard"
+      window.location.href = "/dashboard";
     }
-  }, [org, currentUserRole])
+  }, [org, currentUserRole]);
 
   useEffect(() => {
     const fetchMembers = async () => {
-      if (!selectedOrgId || currentUserRole === "member") return
-      setIsLoadingMembers(true)
+      if (!selectedOrgId || currentUserRole === "member") return;
+      setIsLoadingMembers(true);
       try {
-        const response = await api.get(`/organizations/${selectedOrgId}/members`)
-        const rawMembers = Array.isArray(response) ? response : response.data || []
-        
+        const response = await api.get(
+          `/organizations/${selectedOrgId}/members`,
+        );
+        const rawMembers = Array.isArray(response)
+          ? response
+          : response.data || [];
+
         const formattedMembers = rawMembers.map((item: any) => {
-          const userObj = item.user || {}
-          const membership = item.membership || {}
-          
+          const userObj = item.user || {};
+          const membership = item.membership || {};
+
           return {
             user: {
               id: userObj.id,
-              name: `${userObj.firstName || ''} ${userObj.lastName || ''}`.trim() || userObj.email || 'Unknown User',
-              email: userObj.email
+              name:
+                `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() ||
+                userObj.email ||
+                "Unknown User",
+              email: userObj.email,
             },
-            role: membership.role || item.role || 'member',
-            status: membership.status || item.status || 'active'
-          }
-        })
-        
-        setMembers(formattedMembers)
+            role: membership.role || item.role || "member",
+            status: membership.status || item.status || "active",
+          };
+        });
+
+        setMembers(formattedMembers);
       } catch (err) {
-        console.error("Failed to fetch members", err)
+        console.error("Failed to fetch members", err);
       } finally {
-        setIsLoadingMembers(false)
+        setIsLoadingMembers(false);
       }
-    }
-    
-    fetchMembers()
-  }, [selectedOrgId])
+    };
+
+    fetchMembers();
+  }, [selectedOrgId]);
 
   const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedOrgId) return
+    e.preventDefault();
+    if (!selectedOrgId) return;
 
-    setIsInviting(true)
-    setError(null)
+    setIsInviting(true);
+    setError(null);
     try {
-      await api.post(`/organizations/${selectedOrgId}/members`, { email, role })
-      
+      await api.post(`/organizations/${selectedOrgId}/members`, {
+        email,
+        role,
+      });
+
       // Refresh members
-      const response = await api.get(`/organizations/${selectedOrgId}/members`)
-      const rawMembers = Array.isArray(response) ? response : response.data || []
-      
+      const response = await api.get(`/organizations/${selectedOrgId}/members`);
+      const rawMembers = Array.isArray(response)
+        ? response
+        : response.data || [];
+
       const formattedMembers = rawMembers.map((item: any) => {
-        const userObj = item.user || {}
-        const membership = item.membership || {}
+        const userObj = item.user || {};
+        const membership = item.membership || {};
         return {
           user: {
             id: userObj.id,
-            name: `${userObj.firstName || ''} ${userObj.lastName || ''}`.trim() || userObj.email || 'Unknown User',
-            email: userObj.email
+            name:
+              `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() ||
+              userObj.email ||
+              "Unknown User",
+            email: userObj.email,
           },
-          role: membership.role || item.role || 'member',
-          status: membership.status || item.status || 'active'
-        }
-      })
-      
-      setMembers(formattedMembers)
-      toast.success("Invitation sent successfully!")
-      
-      setIsModalOpen(false)
-      setEmail("")
-      setRole("member")
+          role: membership.role || item.role || "member",
+          status: membership.status || item.status || "active",
+        };
+      });
+
+      setMembers(formattedMembers);
+      toast.success("Invitation sent successfully!");
+
+      setIsModalOpen(false);
+      setEmail("");
+      setRole("member");
     } catch (err: any) {
-      setError(err.message || "Failed to invite member")
-      toast.error("Failed to invite member")
+      setError(err.message || "Failed to invite member");
+      toast.error("Failed to invite member");
     } finally {
-      setIsInviting(false)
+      setIsInviting(false);
     }
-  }
+  };
 
   const handleRemove = async () => {
-    if (!selectedOrgId || !deleteUserId) return
-    
-    setIsRemoving(true)
+    if (!selectedOrgId || !deleteUserId) return;
+
+    setIsRemoving(true);
     try {
-      await api.delete(`/organizations/${selectedOrgId}/members/${deleteUserId}`)
-      setMembers(members.filter(m => m.user.id !== deleteUserId))
-      toast.success("Member removed successfully")
-      setDeleteUserId(null)
+      await api.delete(
+        `/organizations/${selectedOrgId}/members/${deleteUserId}`,
+      );
+      setMembers(members.filter((m) => m.user.id !== deleteUserId));
+      toast.success("Member removed successfully");
+      setDeleteUserId(null);
     } catch (err: any) {
-      toast.error(err.message || "Failed to remove member")
+      toast.error(err.message || "Failed to remove member");
     } finally {
-      setIsRemoving(false)
+      setIsRemoving(false);
     }
-  }
+  };
 
   const handleRoleChange = async (targetId: string, newRole: string) => {
-    if (!selectedOrgId) return
-    
+    if (!selectedOrgId) return;
+
     try {
-      await api.patch(`/organizations/${selectedOrgId}/members/${targetId}`, { role: newRole })
-      setMembers(members.map(m => m.user.id === targetId ? { ...m, role: newRole } : m))
-      toast.success("Role updated successfully")
+      await api.put(`/organizations/${selectedOrgId}/members/${targetId}`, {
+        role: newRole,
+      });
+      setMembers(
+        members.map((m) =>
+          m.user.id === targetId ? { ...m, role: newRole } : m,
+        ),
+      );
+      toast.success("Role updated successfully");
     } catch (err: any) {
-      toast.error(err.message || "Failed to update role")
+      toast.error(err.message || "Failed to update role");
     }
-  }
+  };
 
   const canRemove = (targetRole: string, targetId: string) => {
-    if (currentUserRole === "member") return false
-    if (targetRole === "owner") return false
-    if (targetId === user?.id) return false // can't remove self from this UI
-    if (currentUserRole === "admin" && targetRole === "admin") return false
-    return true
-  }
+    if (currentUserRole === "member") return false;
+    if (targetRole === "owner") return false;
+    if (targetId === user?.id) return false; // can't remove self from this UI
+    if (currentUserRole === "admin" && targetRole === "admin") return false;
+    return true;
+  };
 
   const canChangeRole = (targetRole: string, targetId: string) => {
-    if (currentUserRole === "member") return false
-    if (targetRole === "owner") return false
-    if (targetId === user?.id) return false
-    if (currentUserRole === "admin" && targetRole === "admin") return false
-    return true
-  }
+    if (currentUserRole === "member") return false;
+    if (targetRole === "owner") return false;
+    if (targetId === user?.id) return false;
+    if (currentUserRole === "admin" && targetRole === "admin") return false;
+    return true;
+  };
 
-  const canInvite = currentUserRole === "owner" || currentUserRole === "admin"
+  const canInvite = currentUserRole === "owner" || currentUserRole === "admin";
 
   return (
     <div className="space-y-8">
@@ -168,7 +191,10 @@ export default function MembersPage() {
           </p>
         </div>
         {canInvite && (
-          <Button onClick={() => setIsModalOpen(true)} disabled={!selectedOrgId}>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            disabled={!selectedOrgId}
+          >
             <UserPlus className="mr-2 h-4 w-4" />
             Invite Member
           </Button>
@@ -195,13 +221,16 @@ export default function MembersPage() {
                 </tr>
               ) : members.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                  <td
+                    colSpan={4}
+                    className="px-6 py-8 text-center text-muted-foreground"
+                  >
                     No members found. Invite someone to get started.
                   </td>
                 </tr>
               ) : (
                 members.map((member, i) => (
-                  <motion.tr 
+                  <motion.tr
                     key={member.user.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -216,7 +245,11 @@ export default function MembersPage() {
                         <div>
                           <div className="font-medium text-foreground">
                             {member.user.name}
-                            {member.user.id === user?.id && <span className="ml-2 text-xs text-muted-foreground">(You)</span>}
+                            {member.user.id === user?.id && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                (You)
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center mt-0.5">
                             <Mail className="h-3 w-3 mr-1" />
@@ -226,7 +259,7 @@ export default function MembersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {member.status === 'pending' ? (
+                      {member.status === "pending" ? (
                         <span className="inline-flex items-center text-xs bg-amber-500/20 text-amber-500 px-2 py-1 rounded-full">
                           <Clock className="h-3 w-3 mr-1" /> Pending
                         </span>
@@ -240,7 +273,9 @@ export default function MembersPage() {
                       {canChangeRole(member.role, member.user.id) ? (
                         <select
                           value={member.role}
-                          onChange={(e) => handleRoleChange(member.user.id, e.target.value)}
+                          onChange={(e) =>
+                            handleRoleChange(member.user.id, e.target.value)
+                          }
                           className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-foreground focus:ring-1 focus:ring-primary"
                         >
                           <option value="member">Member</option>
@@ -254,30 +289,29 @@ export default function MembersPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {canRemove(member.role, member.user.id) && (
-                        member.status === 'pending' ? (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                      {canRemove(member.role, member.user.id) &&
+                        (member.status === "pending" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               // We can reuse the remove handler for canceling
-                              setDeleteUserId(member.user.id)
+                              setDeleteUserId(member.user.id);
                             }}
                             className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600"
                           >
                             Cancel Invite
                           </Button>
                         ) : (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => setDeleteUserId(member.user.id)}
                             className="text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        )
-                      )}
+                        ))}
                     </td>
                   </motion.tr>
                 ))
@@ -303,20 +337,18 @@ export default function MembersPage() {
             <label className="text-sm font-medium leading-none" htmlFor="email">
               Email Address
             </label>
-            <Input 
-              id="email" 
+            <Input
+              id="email"
               type="email"
-              placeholder="colleague@example.com" 
+              placeholder="colleague@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required 
+              required
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">
-              Role
-            </label>
-            <select 
+            <label className="text-sm font-medium leading-none">Role</label>
+            <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&>option]:bg-background"
@@ -326,7 +358,11 @@ export default function MembersPage() {
             </select>
           </div>
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isInviting}>
@@ -348,5 +384,5 @@ export default function MembersPage() {
         isLoading={isRemoving}
       />
     </div>
-  )
+  );
 }

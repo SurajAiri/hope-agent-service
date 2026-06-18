@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { db } from "../../../db";
-import { UserTable } from "../../../db/user.schema";
-import { OrganizationTable } from "../../../db/organization.schema";
-import { MembershipTable } from "../../../db/membership.schema";
-import { ApiError } from "../../../shared/utils/ApiError";
+import { db } from "@/db";
+import { UserTable } from "@/db/user.schema";
+import { OrganizationTable } from "@/db/organization.schema";
+import { MembershipTable } from "@/db/membership.schema";
+import { ApiError } from "@/shared/utils/ApiError";
 import { eq } from "drizzle-orm";
 import { registerSchema, loginSchema } from "./auth.validation";
 import { z } from "zod";
@@ -53,7 +53,7 @@ export class AuthService {
       });
 
       const token = this.generateToken(user.id);
-      
+
       return { user, token, organization: org };
     });
   }
@@ -67,7 +67,10 @@ export class AuthService {
       throw new ApiError(401, "Invalid email or password");
     }
 
-    const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      input.password,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
       throw new ApiError(401, "Invalid email or password");

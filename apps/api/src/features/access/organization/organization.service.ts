@@ -1,13 +1,19 @@
-import { db } from "../../../db";
-import { OrganizationTable } from "../../../db/organization.schema";
-import { MembershipTable } from "../../../db/membership.schema";
-import { ApiError } from "../../../shared/utils/ApiError";
+import { db } from "@/db";
+import { OrganizationTable } from "@/db/organization.schema";
+import { MembershipTable } from "@/db/membership.schema";
+import { ApiError } from "@/shared/utils/ApiError";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { createOrganizationSchema, updateOrganizationSchema } from "./organization.validation";
+import {
+  createOrganizationSchema,
+  updateOrganizationSchema,
+} from "./organization.validation";
 
 export class OrganizationService {
-  async createOrganization(userId: string, input: z.infer<typeof createOrganizationSchema>) {
+  async createOrganization(
+    userId: string,
+    input: z.infer<typeof createOrganizationSchema>,
+  ) {
     // Check if slug is unique
     const existingOrg = await db.query.OrganizationTable.findFirst({
       where: eq(OrganizationTable.slug, input.slug),
@@ -44,13 +50,16 @@ export class OrganizationService {
     const orgs = await db
       .select({ org: OrganizationTable, role: MembershipTable.role })
       .from(OrganizationTable)
-      .innerJoin(MembershipTable, eq(OrganizationTable.id, MembershipTable.organizationId))
+      .innerJoin(
+        MembershipTable,
+        eq(OrganizationTable.id, MembershipTable.organizationId),
+      )
       .where(
         and(
           eq(MembershipTable.userId, userId),
           eq(MembershipTable.status, "active"),
-          eq(OrganizationTable.status, "active")
-        )
+          eq(OrganizationTable.status, "active"),
+        ),
       );
 
     return orgs;
@@ -60,7 +69,7 @@ export class OrganizationService {
     const org = await db.query.OrganizationTable.findFirst({
       where: and(
         eq(OrganizationTable.id, orgId),
-        eq(OrganizationTable.status, "active")
+        eq(OrganizationTable.status, "active"),
       ),
     });
 
@@ -69,7 +78,10 @@ export class OrganizationService {
     return org;
   }
 
-  async updateOrganization(orgId: string, input: z.infer<typeof updateOrganizationSchema>) {
+  async updateOrganization(
+    orgId: string,
+    input: z.infer<typeof updateOrganizationSchema>,
+  ) {
     const org = await this.getOrganizationById(orgId);
 
     const [updated] = await db
@@ -93,7 +105,7 @@ export class OrganizationService {
         deletedBy: userId,
       })
       .where(eq(OrganizationTable.id, orgId));
-    
+
     return true;
   }
 }

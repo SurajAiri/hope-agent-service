@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../shared/utils/ApiError";
-import { asyncHandler } from "../shared/utils/asyncHandler";
-import { db } from "../db";
-import { MembershipTable } from "../db/membership.schema";
+import { ApiError } from "@/shared/utils/ApiError";
+import { asyncHandler } from "@/shared/utils/asyncHandler";
+import { db } from "@/db";
+import { MembershipTable } from "@/db/membership.schema";
 import { and, eq } from "drizzle-orm";
 
 declare global {

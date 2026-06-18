@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { OrganizationController } from "./organization.controller";
-import { validate } from "../../../middlewares/validate.middleware";
-import { authMiddleware } from "../../../middlewares/auth.middleware";
-import { requireOrganizationRole } from "../../../middlewares/org.middleware";
+import { validate } from "@/middlewares/validate.middleware";
+import { authMiddleware } from "@/middlewares/auth.middleware";
+import { requireOrganizationRole } from "@/middlewares/org.middleware";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,

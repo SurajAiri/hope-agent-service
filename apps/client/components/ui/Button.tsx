@@ -3,7 +3,7 @@ import { motion, HTMLMotionProps } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export interface ButtonProps extends HTMLMotionProps<"button"> {
-  variant?: "default" | "outline" | "ghost" | "glass"
+  variant?: "default" | "outline" | "ghost" | "glass" | "destructive"
   size?: "default" | "sm" | "lg" | "icon"
 }
 
@@ -14,6 +14,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       outline: "border border-input bg-transparent hover:bg-accent/10 text-foreground",
       ghost: "hover:bg-accent/10 hover:text-accent",
       glass: "glass hover:bg-white/5",
+      destructive: "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20",
     }
 
     const sizes = {

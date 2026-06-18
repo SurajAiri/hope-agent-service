@@ -6,7 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node --env-file=.env.production dist/server.js",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",
@@ -36,6 +36,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "drizzle-kit": "^0.31.10",
+    "tsc-alias": "^1.8.17",
     "tsx": "^4.22.4",
     "typescript": "^5.8.0"
   }

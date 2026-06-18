@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { MembershipController } from "./membership.controller";
-import { validate } from "../../../middlewares/validate.middleware";
-import { authMiddleware } from "../../../middlewares/auth.middleware";
-import { requireOrganizationRole } from "../../../middlewares/org.middleware";
+import { validate } from "@/middlewares/validate.middleware";
+import { authMiddleware } from "@/middlewares/auth.middleware";
+import { requireOrganizationRole } from "@/middlewares/org.middleware";
 import { addMemberSchema } from "./membership.validation";
 
 const router = Router({ mergeParams: true }); // allows getting :organizationId from parent router
@@ -108,7 +108,7 @@ router.delete(
   membershipController.removeMember,
 );
 
-router.patch(
+router.put(
   "/:userId",
   requireOrganizationRole(["owner", "admin"]),
   membershipController.updateRole,
@@ -124,14 +124,8 @@ router.post(
 // They just need the authMiddleware, which is already applied to this router.
 // But wait, they are accessing an organization resource. We can allow anyone authenticated to call it,
 // and the service will check if the user has a pending invite for that org.
-router.post(
-  "/accept",
-  membershipController.acceptInvite,
-);
+router.post("/accept", membershipController.acceptInvite);
 
-router.post(
-  "/reject",
-  membershipController.rejectInvite,
-);
+router.post("/reject", membershipController.rejectInvite);
 
 export default router;

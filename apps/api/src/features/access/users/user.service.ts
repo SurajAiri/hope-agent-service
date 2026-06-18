@@ -1,7 +1,11 @@
 import bcrypt from "bcrypt";
+import { eq, and } from "drizzle-orm";
 
 import { UserRepository } from "./user.repository";
 import { CreateUserInput, UpdateUserInput } from "./user.schema";
+import { db } from "@/db";
+import { MembershipTable } from "@/db/membership.schema";
+import { OrganizationTable } from "@/db/organization.schema";
 
 export class UserService {
   constructor(private readonly userRepository = new UserRepository()) {}
@@ -60,24 +64,21 @@ export class UserService {
   }
 
   async getInvitations(userId: string) {
-    // using db directly for simplicity, requiring import
-    const { db } = await import("../../../db/index");
-    const { MembershipTable } = await import("../../../db/membership.schema");
-    const { OrganizationTable } = await import("../../../db/organization.schema");
-    const { eq, and } = await import("drizzle-orm");
-
     const invites = await db
       .select({
         membership: MembershipTable,
         organization: OrganizationTable,
       })
       .from(MembershipTable)
-      .innerJoin(OrganizationTable, eq(MembershipTable.organizationId, OrganizationTable.id))
+      .innerJoin(
+        OrganizationTable,
+        eq(MembershipTable.organizationId, OrganizationTable.id),
+      )
       .where(
         and(
           eq(MembershipTable.userId, userId),
-          eq(MembershipTable.status, "pending")
-        )
+          eq(MembershipTable.status, "pending"),
+        ),
       );
 
     return invites;
