@@ -51,4 +51,15 @@ export class UserController {
       message: "User deleted successfully",
     });
   }
+
+  async getInvitations(req: Request, res: Response) {
+    const userId = req.user!.id as string;
+
+    const invites = await userService.getInvitations(userId);
+
+    return res.json({
+      success: true,
+      data: invites,
+    });
+  }
 }

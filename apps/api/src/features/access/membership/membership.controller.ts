@@ -32,4 +32,38 @@ export class MembershipController {
     console.log(`[MembershipController] removeMember success`);
     res.status(200).json(new ApiResponse(200, null, "Member removed successfully"));
   });
+
+  updateRole = asyncHandler(async (req: Request, res: Response) => {
+    const orgId = req.organizationId!;
+    const targetUserId = req.params.userId as string;
+    const updaterId = req.user!.id as string;
+    const { role } = req.body;
+    console.log(`[MembershipController] updateRole called for orgId: ${orgId}, targetUserId: ${targetUserId} to role: ${role}`);
+    const updated = await membershipService.updateRole(orgId, targetUserId, updaterId, role);
+    res.status(200).json(new ApiResponse(200, updated, "Role updated successfully"));
+  });
+
+  leaveOrganization = asyncHandler(async (req: Request, res: Response) => {
+    const orgId = req.organizationId!;
+    const userId = req.user!.id as string;
+    console.log(`[MembershipController] leaveOrganization called for orgId: ${orgId} by userId: ${userId}`);
+    await membershipService.leaveOrganization(orgId, userId);
+    res.status(200).json(new ApiResponse(200, null, "Left organization successfully"));
+  });
+
+  acceptInvite = asyncHandler(async (req: Request, res: Response) => {
+    const orgId = req.params.organizationId as string || req.organizationId!;
+    const userId = req.user!.id as string;
+    console.log(`[MembershipController] acceptInvite called for orgId: ${orgId} by userId: ${userId}`);
+    await membershipService.acceptInvite(orgId, userId);
+    res.status(200).json(new ApiResponse(200, null, "Invitation accepted"));
+  });
+
+  rejectInvite = asyncHandler(async (req: Request, res: Response) => {
+    const orgId = req.params.organizationId as string || req.organizationId!;
+    const userId = req.user!.id as string;
+    console.log(`[MembershipController] rejectInvite called for orgId: ${orgId} by userId: ${userId}`);
+    await membershipService.rejectInvite(orgId, userId);
+    res.status(200).json(new ApiResponse(200, null, "Invitation rejected"));
+  });
 }

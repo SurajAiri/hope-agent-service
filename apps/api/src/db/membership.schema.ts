@@ -9,9 +9,11 @@ export const membershipRoleEnum = pgEnum("membership_role", [
 ]);
 
 export const membershipStatusEnum = pgEnum("membership_status", [
+  "pending",
   "active",
   "suspended",
   "deleted",
+  "rejected"
 ]);
 
 export const MembershipTable = pgTable("memberships", {

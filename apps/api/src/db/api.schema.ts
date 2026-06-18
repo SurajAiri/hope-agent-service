@@ -22,6 +22,7 @@ export const ApiKeyTable = pgTable("api_keys", {
 
   createdBy: uuid("created_by").references(() => UserTable.id),
   deletedBy: uuid("deleted_by").references(() => UserTable.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
   createdAt: timestamp("created_at", { withTimezone: true })

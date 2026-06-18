@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./configs/swagger";
 import { db } from "./db/index";
 import { UserTable } from "./db/schema";
 
@@ -8,6 +10,13 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Swagger documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get("/api-docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
 
 import authRoutes from "./features/access/auth/auth.routes";
 import userRoutes from "./features/access/users/user.routes";

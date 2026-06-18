@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 
 export class ApiService {
-  async createApiKey(orgId: string, name: string, creatorId: string) {
+  async createApiKey(orgId: string, name: string, creatorId: string, expiresAt: Date | null = null) {
     // Generate a secure random API key
     const rawKey = `ak_${crypto.randomBytes(24).toString("hex")}`;
     
@@ -18,6 +18,7 @@ export class ApiService {
         name,
         keyHash,
         createdBy: creatorId,
+        expiresAt,
       })
       .returning();
 
@@ -41,7 +42,7 @@ export class ApiService {
         name: true,
         createdAt: true,
         createdBy: true,
-        // don't return keyHash
+        expiresAt: true,
       }
     });
 

@@ -58,4 +58,28 @@ export class UserService {
 
     return await this.userRepository.delete(id);
   }
+
+  async getInvitations(userId: string) {
+    // using db directly for simplicity, requiring import
+    const { db } = await import("../../../db/index");
+    const { MembershipTable } = await import("../../../db/membership.schema");
+    const { OrganizationTable } = await import("../../../db/organization.schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    const invites = await db
+      .select({
+        membership: MembershipTable,
+        organization: OrganizationTable,
+      })
+      .from(MembershipTable)
+      .innerJoin(OrganizationTable, eq(MembershipTable.organizationId, OrganizationTable.id))
+      .where(
+        and(
+          eq(MembershipTable.userId, userId),
+          eq(MembershipTable.status, "pending")
+        )
+      );
+
+    return invites;
+  }
 }

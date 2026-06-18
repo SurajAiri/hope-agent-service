@@ -9,10 +9,10 @@ export class ApiController {
   createApiKey = asyncHandler(async (req: Request, res: Response) => {
     const orgId = req.organizationId!;
     const creatorId = req.user!.id as string;
-    const { name } = req.body;
+    const { name, expiresAt } = req.body;
 
     console.log(`[ApiController] createApiKey called for orgId: ${orgId} by creatorId: ${creatorId} name: ${name}`);
-    const apiKey = await apiService.createApiKey(orgId, name, creatorId);
+    const apiKey = await apiService.createApiKey(orgId, name, creatorId, expiresAt ? new Date(expiresAt) : null);
     console.log(`[ApiController] createApiKey success for keyId: ${apiKey.id}`);
 
     // Warning: The key is only returned once

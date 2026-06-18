@@ -39,16 +39,6 @@ export class OrganizationService {
   }
 
   async getMyOrganizations(userId: string) {
-    const memberships = await db.query.MembershipTable.findMany({
-      where: and(
-        eq(MembershipTable.userId, userId),
-        eq(MembershipTable.status, "active")
-      ),
-      with: {
-        organization: true, // Need to make sure relation is defined in schema or use standard query
-      },
-    });
-    
     // Instead of using `with: { organization: true }` which requires relation definitions,
     // let's do a join or standard query
     const orgs = await db
