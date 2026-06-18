@@ -41,6 +41,10 @@ export const UserTable = pgTable("users", {
 
   isVerified: boolean("is_verified").notNull().default(true), // for now let's just skip the verification
 
+  createdBy: uuid("created_by"), // todo: just remove this
+  deletedBy: uuid("deleted_by"), // todo: just remove this
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+
   createdAt: timestamp("created_at", {
     withTimezone: true,
   })

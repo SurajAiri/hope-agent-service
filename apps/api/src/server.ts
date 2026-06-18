@@ -9,6 +9,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+import authRoutes from "./features/access/auth/auth.routes";
+import userRoutes from "./features/access/users/user.routes";
+import orgRoutes from "./features/access/organization/organization.routes";
+import membershipRoutes from "./features/access/membership/membership.routes";
+import apiRoutes from "./features/access/api/api.routes";
+
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/organizations", orgRoutes);
+app.use("/api/v1/organizations/:organizationId/members", membershipRoutes);
+app.use("/api/v1/organizations/:organizationId/apikeys", apiRoutes);
+
 app.get("/", (_, res) => {
   res.json({
     message: "API running",

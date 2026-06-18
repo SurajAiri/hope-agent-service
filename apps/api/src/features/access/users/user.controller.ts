@@ -39,4 +39,16 @@ export class UserController {
       data: user,
     });
   }
+
+  async delete(req: Request, res: Response) {
+    const userId = req.user!.id as string;
+
+    await userService.deleteUser(userId);
+
+    return res.json({
+      success: true,
+      data: null,
+      message: "User deleted successfully",
+    });
+  }
 }

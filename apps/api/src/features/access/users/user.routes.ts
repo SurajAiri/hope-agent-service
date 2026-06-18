@@ -5,8 +5,9 @@ import { UserController } from "./user.controller";
 const router = express.Router();
 const userController = new UserController();
 
-router.post("/", userController.create);
-router.get("/me", authMiddleware, userController.getMe);
-router.put("/me", authMiddleware, userController.update);
+// router.post("/", userController.create);
+router.get("/", authMiddleware, userController.getMe);
+router.put("/", authMiddleware, userController.update);
+router.delete("/", authMiddleware, userController.delete);
 
 export default router;

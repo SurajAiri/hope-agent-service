@@ -9,7 +9,6 @@
     "build": "tsc",
     "start": "node --env-file=.env.production dist/server.js",
     "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },

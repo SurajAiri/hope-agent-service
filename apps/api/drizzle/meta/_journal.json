@@ -8,6 +8,13 @@
       "when": 1781722220270,
       "tag": "0000_black_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781724144077,
+      "tag": "0001_cooing_secret_warriors",
+      "breakpoints": true
     }
   ]
 }
