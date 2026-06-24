@@ -1,0 +1,27 @@
+[project]
+name = "runner"
+version = "0.1.0"
+description = "Runner Framework — infrastructure bridge between engine and deployment targets"
+readme = "README.md"
+authors = [{ name = "Suraj Airi", email = "surajairi.ml@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "hope-agent-sdk",
+    "engine",
+    "redis[hiredis]>=5.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",
+    "boto3>=1.34.0",
+    "loguru>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/runner"]
+
+[tool.uv.sources]
+hope-agent-sdk = { workspace = true }
+engine = { workspace = true }

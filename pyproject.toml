@@ -1,0 +1,7 @@
+[tool.uv.workspace]
+members = [
+    "apps/genai",
+    "packages/agent-sdk",
+    "packages/engine",
+    "packages/runner",
+]

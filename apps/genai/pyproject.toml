@@ -7,21 +7,28 @@ name = "genai"
 version = "0.0.1"
 description = "A GenAI project built with LangChain and modern Python tools"
 readme = "README.md"
-authors = [
-    { name = "Suraj Airi", email = "surajairi.ml@gmail.com" }
-]
+authors = [{ name = "Suraj Airi", email = "surajairi.ml@gmail.com" }]
 license = { text = "MIT license" }
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.137.1",
+    "hope-agent-sdk>=1.0.0",
     "litellm>=1.89.2",
     "python-dotenv>=1.2.2",
     "redis>=8.0.0",
-    "uvicorn>=0.49.0",
+    "uvicorn[standard]>=0.49.0",
+    "engine",
+    "runner",
+    "sse-starlette>=3.4.5",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.12.1",
 ]
 
@@ -31,4 +38,9 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.uv.sources]
+hope-agent-sdk = { workspace = true }
+engine = { workspace = true }
+runner = { workspace = true }
 
