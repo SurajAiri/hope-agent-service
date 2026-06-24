@@ -22,7 +22,8 @@ const authController = new AuthController();
  *             required:
  *               - email
  *               - password
- *               - name
+ *               - firstName
+ *               - lastName
  *             properties:
  *               email:
  *                 type: string
@@ -30,7 +31,9 @@ const authController = new AuthController();
  *               password:
  *                 type: string
  *                 format: password
- *               name:
+ *               firstName:
+ *                 type: string
+ *               lastName:
  *                 type: string
  *     responses:
  *       201:

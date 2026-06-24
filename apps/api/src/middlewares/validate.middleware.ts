@@ -11,7 +11,11 @@ export const validate = (schema: ZodSchema) => {
     } catch (error: any) {
       if (error instanceof ZodError) {
         console.error("Validation Error: ", error);
-        throw new ApiError(400, "Validation Error", (error as any).errors);
+        const formattedErrors = error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        }));
+        throw new ApiError(400, "Validation Error", formattedErrors);
       }
       next(error);
     }

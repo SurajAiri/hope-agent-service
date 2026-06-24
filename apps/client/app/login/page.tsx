@@ -36,7 +36,11 @@ export default function LoginPage() {
         throw new Error("No token received from server")
       }
     } catch (err: any) {
-      setError(err.message || "Failed to login. Please check your credentials.")
+      if (err.errors && err.errors.length > 0) {
+        setError(err.errors.map((e: any) => `${e.field}: ${e.message}`).join(", "))
+      } else {
+        setError(err.message || "Failed to login. Please check your credentials.")
+      }
     } finally {
       setIsLoading(false)
     }

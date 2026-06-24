@@ -15,6 +15,13 @@
       "when": 1781724144077,
       "tag": "0001_cooing_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782206548988,
+      "tag": "0002_breezy_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,8 @@ export const errorHandler = (
   let error = err;
 
   // Add logging so errors are visible in the terminal
-  console.error(`[Error] ${req.method} ${req.url} >>`, err.message || err);
+  console.error(`[Error] ${req.method} ${req.url} >>`);
+  console.error(err);
   if (err.stack && process.env.NODE_ENV !== "production") {
     console.error(err.stack);
   }
@@ -24,6 +25,9 @@ export const errorHandler = (
   const response = {
     ...error,
     message: error.message,
+    errors: error.errors || [],
+    detail: err.detail || error.detail,
+    code: err.code || error.code,
     ...(process.env.NODE_ENV === "development" ? { stack: error.stack } : {}),
   };
 

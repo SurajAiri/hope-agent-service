@@ -14,20 +14,28 @@ import { useAppStore } from "@/lib/store"
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const router = useRouter()
   const { fetchUser } = useAppStore()
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     
     try {
       // Register
-      await api.post("/auth/register", { name, email, password })
+      await api.post("/auth/register", { firstName, lastName, email, password })
       
       // Auto-login after registration
       const loginResponse = await api.post("/auth/login", { email, password })
@@ -41,7 +49,11 @@ export default function RegisterPage() {
         router.push("/login") // Fallback to login
       }
     } catch (err: any) {
-      setError(err.message || "Failed to register. Please try again.")
+      if (err.errors && err.errors.length > 0) {
+        setError(err.errors.map((e: any) => `${e.field}: ${e.message}`).join(", "))
+      } else {
+        setError(err.message || "Failed to register. Please try again.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -75,17 +87,31 @@ export default function RegisterPage() {
                   {error}
                 </div>
               )}
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none" htmlFor="name">
-                  Full Name
-                </label>
-                <Input 
-                  id="name" 
-                  placeholder="John Doe" 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required 
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none" htmlFor="firstName">
+                    First Name
+                  </label>
+                  <Input 
+                    id="firstName" 
+                    placeholder="John" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none" htmlFor="lastName">
+                    Last Name
+                  </label>
+                  <Input 
+                    id="lastName" 
+                    placeholder="Doe" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required 
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium leading-none" htmlFor="email">
@@ -109,6 +135,18 @@ export default function RegisterPage() {
                   type="password" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none" htmlFor="confirmPassword">
+                  Confirm Password
+                </label>
+                <Input 
+                  id="confirmPassword" 
+                  type="password" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required 
                 />
               </div>

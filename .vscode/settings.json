@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/genai/.venv/bin/python",
+  "python.terminal.activateEnvironment": true
+}
