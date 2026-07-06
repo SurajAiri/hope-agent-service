@@ -5,15 +5,15 @@ import { ApiError } from "@/shared/utils/ApiError";
 export const validate = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log(req.body);
       req.body = await schema.parseAsync(req.body);
       next();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ZodError) {
-        console.error("Validation Error: ", error);
-        const formattedErrors = error.errors.map((err) => ({
-          field: err.path.join("."),
-          message: err.message,
+        // Zod v4 uses .issues; older versions used .errors (same data)
+        const issues = (error as any).issues ?? (error as any).errors ?? [];
+        const formattedErrors = issues.map((issue: any) => ({
+          field: issue.path?.join(".") ?? "",
+          message: issue.message,
         }));
         throw new ApiError(400, "Validation Error", formattedErrors);
       }

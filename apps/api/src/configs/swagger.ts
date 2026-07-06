@@ -21,10 +21,20 @@ const options: swaggerJsdoc.Options = {
           scheme: "bearer",
           bearerFormat: "JWT",
         },
+        apiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+          description: "Org API key (for programmatic access to agent routes)",
+        },
       },
     },
   },
-  apis: ["./src/features/access/**/*.routes.ts"],
+  // Include both access feature routes and the new agents feature routes
+  apis: [
+    "./src/features/access/**/*.routes.ts",
+    "./src/features/agents/*.routes.ts",
+  ],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

@@ -2,6 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env" });
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3030";
+const GENAI_SERVICE_URL = process.env.GENAI_SERVICE_URL || "http://localhost:8000";
 
 interface TestResult {
   name: string;
@@ -18,9 +19,13 @@ let testOrgId: string;
 let testOrgSlug: string;
 let testMemberId: string;
 let testApiKeyId: string;
+let testRawApiKey: string; // raw key (shown only once on creation)
 let memberAuthToken: string;
 let memberUserId: string;
 let memberEmail: string;
+
+// Track if the GenAI service is reachable so we can skip agent tests gracefully
+let genaiServiceAvailable = false;
 
 async function runTest(name: string, fn: () => Promise<void>) {
   const start = Date.now();
@@ -47,9 +52,11 @@ async function request(
   path: string,
   body?: any,
   token?: string,
+  extraHeaders?: Record<string, string>,
 ): Promise<{ status: number; data: any }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
 
   if (token) {
@@ -160,7 +167,6 @@ async function main() {
 
     if (status !== 200) throw new Error(`Expected 200, got ${status}`);
     if (!data.data?.id) throw new Error("No user data returned");
-    // Just verify we got a user back, don't compare IDs as they might differ
   });
 
   await runTest("GET /api/v1/auth/me - should fail without token", async () => {
@@ -351,6 +357,7 @@ async function main() {
       if (!data.data?.key) throw new Error("No API key value returned");
 
       testApiKeyId = data.data.id;
+      testRawApiKey = data.data.key; // save for agent proxy tests
     },
   );
 
@@ -371,8 +378,202 @@ async function main() {
     },
   );
 
+  // ==================== AGENT PROXY TESTS ====================
+
+  // First check if the GenAI service is reachable
+  await runTest("Check GenAI service availability", async () => {
+    try {
+      const response = await fetch(`${GENAI_SERVICE_URL}/health`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.ok) {
+        genaiServiceAvailable = true;
+        console.log("   ✓ GenAI service is available");
+      } else {
+        console.log(`   ⚠ GenAI service returned ${response.status} — agent tests will be skipped`);
+      }
+    } catch {
+      console.log("   ⚠ GenAI service is not reachable — agent tests will be skipped");
+    }
+  });
+
+  // -- Auth tests for agent routes --
+
   await runTest(
-    "DELETE /api/v1/organizations/:id/apikeys/:keyId - should revoke API key",
+    "GET /api/v1/organizations/:id/agents - should reject unauthenticated request",
+    async () => {
+      const { status } = await request(
+        "GET",
+        `/api/v1/organizations/${testOrgId}/agents`,
+      );
+      if (status !== 401) throw new Error(`Expected 401, got ${status}`);
+    },
+  );
+
+  await runTest(
+    "GET /api/v1/organizations/:id/agents - should authenticate via JWT Bearer token",
+    async () => {
+      const { status, data } = await request(
+        "GET",
+        `/api/v1/organizations/${testOrgId}/agents`,
+        undefined,
+        authToken,
+      );
+      // Auth passed: 200 if genai up, 502 if genai unreachable (but NOT 400/401/403)
+      if (status === 401 || status === 403)
+        throw new Error(`Auth failed — got ${status}: ${JSON.stringify(data)}`);
+      if (status !== 200 && status !== 502)
+        throw new Error(`Expected 200 or 502, got ${status}: ${JSON.stringify(data)}`);
+    },
+  );
+
+  // Create a second API key specifically for the auth test (keep it separate from the
+  // one used in API key list/revoke tests so we don't accidentally test with a revoked key)
+  let agentTestApiKey: string = "";
+  let agentTestApiKeyId: string = "";
+  await runTest("Create dedicated API key for agent auth tests", async () => {
+    const { status, data } = await request(
+      "POST",
+      `/api/v1/organizations/${testOrgId}/apikeys`,
+      { name: "Agent Auth Test Key" },
+      authToken,
+    );
+    if (status !== 201) throw new Error(`Expected 201, got ${status}`);
+    agentTestApiKey = data.data.key;
+    agentTestApiKeyId = data.data.id;
+  });
+
+  await runTest(
+    "GET /api/v1/organizations/:id/agents - should authenticate via X-API-Key header",
+    async () => {
+      if (!agentTestApiKey) {
+        throw new Error("No API key available for test — key creation must have passed");
+      }
+      const { status, data } = await request(
+        "GET",
+        `/api/v1/organizations/${testOrgId}/agents`,
+        undefined,
+        undefined, // no JWT
+        { "X-API-Key": agentTestApiKey },
+      );
+      // Auth passed: 200 if genai up, 502 if genai unreachable (but NOT 400/401/403)
+      if (status === 401 || status === 403)
+        throw new Error(`Auth failed — got ${status}: ${JSON.stringify(data)}`);
+      if (status !== 200 && status !== 502)
+        throw new Error(`Expected 200 or 502, got ${status}: ${JSON.stringify(data)}`);
+    },
+  );
+
+  await runTest(
+    "GET /api/v1/organizations/:id/agents - should reject invalid API key",
+    async () => {
+      const { status } = await request(
+        "GET",
+        `/api/v1/organizations/${testOrgId}/agents`,
+        undefined,
+        undefined,
+        { "X-API-Key": "ak_invalid_key_that_does_not_exist" },
+      );
+      if (status !== 401) throw new Error(`Expected 401, got ${status}`);
+    },
+  );
+
+  // -- Agent run tests (only if GenAI service is available) --
+
+  if (genaiServiceAvailable) {
+    await runTest(
+      "GET /api/v1/organizations/:id/agents - should list agents",
+      async () => {
+        const { status, data } = await request(
+          "GET",
+          `/api/v1/organizations/${testOrgId}/agents`,
+          undefined,
+          authToken,
+        );
+        if (status !== 200)
+          throw new Error(`Expected 200, got ${status}: ${JSON.stringify(data)}`);
+        if (!data.data?.agents) throw new Error("No agents list in response");
+        if (!Array.isArray(data.data.agents)) throw new Error("Agents should be an array");
+      },
+    );
+
+    await runTest(
+      "POST /api/v1/organizations/:id/agents/run - should queue a fire-and-forget run",
+      async () => {
+        const { status, data } = await request(
+          "POST",
+          `/api/v1/organizations/${testOrgId}/agents/run`,
+          {
+            agent_id: "echo",
+            messages: [{ role: "user", content: "Hello from test!" }],
+          },
+          authToken,
+        );
+        if (status !== 202)
+          throw new Error(`Expected 202, got ${status}: ${JSON.stringify(data)}`);
+        if (!data.data?.session_id) throw new Error("No session_id returned");
+      },
+    );
+
+    await runTest(
+      "POST /api/v1/organizations/:id/agents/run/sync - should run synchronously",
+      async () => {
+        const { status, data } = await request(
+          "POST",
+          `/api/v1/organizations/${testOrgId}/agents/run/sync`,
+          {
+            agent_id: "echo",
+            messages: [{ role: "user", content: "Sync test!" }],
+          },
+          authToken,
+        );
+        if (status !== 200)
+          throw new Error(`Expected 200, got ${status}: ${JSON.stringify(data)}`);
+        if (!data.data?.session_id) throw new Error("No session_id returned");
+        if (!data.data?.status) throw new Error("No status in response");
+      },
+    );
+
+    await runTest(
+      "POST /api/v1/organizations/:id/agents/run - should fail with empty messages",
+      async () => {
+        const { status } = await request(
+          "POST",
+          `/api/v1/organizations/${testOrgId}/agents/run`,
+          {
+            agent_id: "echo",
+            messages: [], // empty array — should fail validation
+          },
+          authToken,
+        );
+        if (status !== 400) throw new Error(`Expected 400, got ${status}`);
+      },
+    );
+
+    await runTest(
+      "POST /api/v1/organizations/:id/agents/run - should fail with invalid message role",
+      async () => {
+        const { status } = await request(
+          "POST",
+          `/api/v1/organizations/${testOrgId}/agents/run`,
+          {
+            messages: [{ role: "system", content: "invalid role" }], // 'system' not in enum
+          },
+          authToken,
+        );
+        if (status !== 400) throw new Error(`Expected 400, got ${status}`);
+      },
+    );
+  } else {
+    console.log("\n⚠  GenAI service not available — skipping agent run tests");
+    console.log(`   Start the service at ${GENAI_SERVICE_URL} to run these tests.\n`);
+  }
+
+  // ==================== CLEANUP TESTS ====================
+
+  // Revoke both API keys created during the test
+  await runTest(
+    "DELETE /api/v1/organizations/:id/apikeys/:keyId - should revoke test API key",
     async () => {
       const { status } = await request(
         "DELETE",
@@ -380,12 +581,23 @@ async function main() {
         undefined,
         authToken,
       );
-
       if (status !== 200) throw new Error(`Expected 200, got ${status}`);
     },
   );
 
-  // ==================== CLEANUP TESTS ====================
+  await runTest(
+    "DELETE /api/v1/organizations/:id/apikeys/:keyId - should revoke agent auth test API key",
+    async () => {
+      if (!agentTestApiKeyId) return; // key was never created — skip
+      const { status } = await request(
+        "DELETE",
+        `/api/v1/organizations/${testOrgId}/apikeys/${agentTestApiKeyId}`,
+        undefined,
+        authToken,
+      );
+      if (status !== 200) throw new Error(`Expected 200, got ${status}`);
+    },
+  );
 
   await runTest(
     "DELETE /api/v1/organizations/:id/members/:userId - should remove member",

@@ -11,8 +11,8 @@ import {
 const router = Router();
 const orgController = new OrganizationController();
 
-// Must be authenticated for all org routes
-router.use(authMiddleware);
+// Note: authMiddleware is applied per-route (not globally) to avoid interfering
+// with nested routes (e.g. /agents) that use their own dual-auth middleware.
 
 /**
  * @swagger
@@ -41,7 +41,12 @@ router.use(authMiddleware);
  *       400:
  *         description: Invalid input
  */
-router.post("/", validate(createOrganizationSchema), orgController.create);
+router.post(
+  "/",
+  authMiddleware,
+  validate(createOrganizationSchema),
+  orgController.create,
+);
 
 /**
  * @swagger
@@ -55,7 +60,7 @@ router.post("/", validate(createOrganizationSchema), orgController.create);
  *       200:
  *         description: List of organizations
  */
-router.get("/", orgController.getAll);
+router.get("/", authMiddleware, orgController.getAll);
 
 /**
  * @swagger
@@ -79,6 +84,7 @@ router.get("/", orgController.getAll);
  */
 router.get(
   "/:organizationId",
+  authMiddleware,
   requireOrganizationRole(["owner", "admin", "member"]),
   orgController.getById,
 );
@@ -116,6 +122,7 @@ router.get(
  */
 router.put(
   "/:organizationId",
+  authMiddleware,
   requireOrganizationRole(["owner", "admin"]),
   validate(updateOrganizationSchema),
   orgController.update,
@@ -143,6 +150,7 @@ router.put(
  */
 router.delete(
   "/:organizationId",
+  authMiddleware,
   requireOrganizationRole(["owner"]),
   orgController.delete,
 );

@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 
 import { UserRepository } from "./user.repository";
 import { CreateUserInput, UpdateUserInput } from "./user.schema";
+import { ApiError } from "@/shared/utils/ApiError";
 import { db } from "@/db";
 import { MembershipTable } from "@/db/membership.schema";
 import { OrganizationTable } from "@/db/organization.schema";
@@ -14,26 +15,24 @@ export class UserService {
     const existingUser = await this.userRepository.findByEmail(input.email);
 
     if (existingUser) {
-      throw new Error("User already exists");
+      throw new ApiError(409, "A user with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
 
-    const user = await this.userRepository.create({
+    return await this.userRepository.create({
       email: input.email,
       passwordHash,
       firstName: input.firstName,
       lastName: input.lastName,
     });
-
-    return user;
   }
 
   async updateUser(id: string, input: UpdateUserInput) {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new Error("User not found");
+      throw new ApiError(404, "User not found");
     }
 
     return await this.userRepository.update(id, input);
@@ -43,7 +42,7 @@ export class UserService {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new Error("User not found");
+      throw new ApiError(404, "User not found");
     }
 
     return user;
@@ -57,14 +56,14 @@ export class UserService {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new Error("User not found");
+      throw new ApiError(404, "User not found");
     }
 
     return await this.userRepository.delete(id);
   }
 
   async getInvitations(userId: string) {
-    const invites = await db
+    return db
       .select({
         membership: MembershipTable,
         organization: OrganizationTable,
@@ -80,7 +79,5 @@ export class UserService {
           eq(MembershipTable.status, "pending"),
         ),
       );
-
-    return invites;
   }
 }
