@@ -108,7 +108,7 @@ class AgentProfile(BaseModel):
 
         profile = AgentProfile(
             agent_id="my-agent",
-            max_iterations=15,
+            max_runs=15,
             system_prompt="You are a helpful assistant.",
             default_llm=LlmConfig(model="gpt-4o", provider="openai"),
             fast_llm=LlmConfig(model="gpt-4o-mini", provider="openai"),
@@ -125,7 +125,7 @@ class AgentProfile(BaseModel):
     agent_id: str
 
     # Run control
-    max_iterations: int = 50
+    max_runs: int = 50
 
     # System prompt — injected by DefaultExecutionStep / ReActExecutionStep
     # if not already present in the message list.

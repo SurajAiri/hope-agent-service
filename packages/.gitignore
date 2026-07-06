@@ -222,3 +222,6 @@ artifact/
 *.pptx
 *.mp3
 *.wav
+
+references/
+reference/

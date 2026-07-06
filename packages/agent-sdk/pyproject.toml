@@ -13,6 +13,8 @@ dependencies = ["loguru>=0.7.0", "pydantic>=2.13.4"]
 [project.optional-dependencies]
 # Install with: pip install hope-agent-sdk[litellm]
 litellm = ["litellm>=1.0.0"]
+# Install with: pip install hope-agent-sdk[langgraph]
+langgraph = ["langgraph>=0.2.0", "langchain-core>=0.3.0"]
 
 [build-system]
 requires = ["hatchling"]

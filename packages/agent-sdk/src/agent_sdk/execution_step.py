@@ -1,15 +1,15 @@
 """
 agent_sdk.execution_step
 ~~~~~~~~~~~~~~~~~~~~~~~~
-ExecutionStep — one iteration of the execution loop.
+ExecutionStep — one run of the execution loop.
 
 KEY DESIGN RULE: ExecutionStep is a DEVELOPER-CONTROLLED hook.
-The Engine calls `execution_step.run(...)` on each iteration.
+The Engine calls `execution_step.run(...)` on each run.
 Developers implement their own step logic — how they call the agent runner,
 whether they loop for tool calls, how they decide completion — it's all theirs.
 
 The SDK provides:
-  - StepContext: the input the developer receives (messages, stream, iteration)
+  - StepContext: the input the developer receives (messages, stream, run)
   - StepResult: the output the developer must return (status + updated messages + output)
   - StepStatus: the possible outcomes
   - ExecutionStep (ABC): the interface Engine calls
@@ -49,14 +49,19 @@ class StepStatus(str, Enum):
     """Outcome of one execution step. Returned in StepResult.status."""
 
     COMPLETE = "complete"        # Agent signals done — Engine sets DONE, breaks loop
-    CONTINUE = "continue"        # More iterations needed — Engine loops again
+    CONTINUE = "continue"        # More runs needed — Engine loops again
     ERROR = "error"              # Step failed — Engine sets FAIL, breaks loop
     INTERRUPTED = "interrupted"  # Developer detected an interrupt — Engine sets INTERRUPT
+    HITL = "hitl"                # Needs human input before continuing — Engine sets HITL,
+                                  # persists StepResult.hitl_actions as the pending actions.
+                                  # Re-triggering later re-enters resume_check.hitl_action(),
+                                  # which decides (from checkpoint_data["hitl_actions"]) whether
+                                  # every action now has a response and the loop should resume.
 
 
 class StepContext(BaseModel):
     """
-    Input context passed to ExecutionStep.run() on each loop iteration.
+    Input context passed to ExecutionStep.run() on each loop run.
     Engine builds this from its internal ExecutionState.
     Developer reads this — treat as immutable within a step.
     """
@@ -64,7 +69,7 @@ class StepContext(BaseModel):
 
     messages: list[AnyMessage]        # Current conversation messages (input + history so far)
     stream: bool                # Whether this run is in streaming mode
-    iteration: int              # Current loop iteration count (1-indexed)
+    run_id: int              # Current loop run number (1-indexed)
     # Agent-opaque state: Engine populates from checkpoint_data.
     # Developers can read/write this to persist state across iterations.
     # On COMPLETE/CONTINUE, Engine checkpoints whatever is here.
@@ -93,13 +98,18 @@ class StepResult(BaseModel):
     # Optional: updated state_data to persist to checkpoint (merged into checkpoint_data by Engine)
     state_data: dict[str, Any] | None = None
 
+    # Required when status == HITL: the pending human actions. Each entry must
+    # be JSON-serializable (Engine stores this list verbatim in Redis). Engine
+    # ignores this field for every other status.
+    hitl_actions: list[dict[str, Any]] | None = None
+
     # Developer-facing metadata (not used by Engine — for observability / logging)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExecutionStep(abc.ABC):
     """
-    Abstract base for one iteration of the execution loop.
+    Abstract base for one run of the execution loop.
 
     Engine calls:
         step_result = execution_step.run(agent_runner, agent_context, context)
@@ -123,16 +133,18 @@ class ExecutionStep(abc.ABC):
         context: StepContext,
     ) -> StepResult:
         """
-        Execute one iteration of the agent loop (async).
+        Execute one run of the agent loop (async).
 
         Args:
             agent_runner: LLM caller — await agent_runner.invoke(config, messages, stream=...)
             agent_context: Tool resolver — await agent_context.tool_caller.dispatch(name, args)
-            context: Step input — messages, stream flag, iteration count, state_data
+            context: Step input — messages, stream flag, run_id count, state_data
 
         Returns:
             StepResult with status + updated messages + optional output.
             On error, set status=StepStatus.ERROR and error="reason" (not metadata["error"]).
+            To pause for human input, set status=StepStatus.HITL and hitl_actions=[...];
+            see agent_sdk.langgraph for a full worked example (LangGraph interrupt()).
         """
         ...
 
@@ -188,7 +200,7 @@ class DefaultExecutionStep(ExecutionStep):
             status=StepStatus.COMPLETE,
             messages=updated_messages,
             output=response.content,
-            metadata={"iteration": context.iteration},
+            metadata={"run_id": context.run_id},
         )
 
 
@@ -246,7 +258,7 @@ class ReActExecutionStep(ExecutionStep):
                     status=StepStatus.COMPLETE,
                     messages=messages,
                     output=response.content,
-                    metadata={"iteration": context.iteration},
+                    metadata={"run_id": context.run_id},
                 )
 
             # Dispatch all tool calls and append results
@@ -267,7 +279,7 @@ class ReActExecutionStep(ExecutionStep):
             status=StepStatus.CONTINUE,
             messages=messages,
             metadata={
-                "iteration": context.iteration,
+                "run_id": context.run_id,
                 "reason": f"max_tool_rounds ({self.max_tool_rounds}) reached",
             },
         )

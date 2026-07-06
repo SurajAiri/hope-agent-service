@@ -23,14 +23,12 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
     "httpx>=0.28.1",
+    "langchain-core>=1.4.8",
+    "langgraph>=1.2.7",
 ]
 
 [dependency-groups]
-dev = [
-    "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
-    "ruff>=0.12.1",
-]
+dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0", "ruff>=0.12.1"]
 
 
 [tool.setuptools.packages.find]
@@ -43,4 +41,3 @@ where = ["src"]
 hope-agent-sdk = { workspace = true }
 engine = { workspace = true }
 runner = { workspace = true }
-

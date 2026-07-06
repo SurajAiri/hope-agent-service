@@ -1,6 +1,4 @@
 """
-gen_ai.main
-~~~~~~~~~~~~~~~~~
 FastAPI deployed runner instance.
 
 This is the outermost shell — the "Deployed Runner Instance" from the architecture.
@@ -14,11 +12,11 @@ Loguru configuration:
     so any sinks added here receive logs from the entire stack.
 
 Routes:
-  POST /run               → fire-and-forget trigger (returns run_id immediately)
-  POST /run/sync          → blocking trigger (waits for completion, returns full result)
-  POST /run/stream        → trigger streaming run (SSE)
-  GET  /run/status/{id}   → poll run status from Redis
-  GET  /run/{id}          → get completed run result + state
+  POST /call               → fire-and-forget trigger (returns session_id immediately)
+  POST /call/sync          → blocking trigger (waits for completion, returns full result)
+  POST /call/stream        → trigger streaming run (SSE)
+  GET  /session/status/{id}   → poll run status from Redis
+  GET  /call/{id}          → get completed run result + state
   GET  /health            → health check
   GET  /                  → endpoint index
 """
@@ -26,6 +24,7 @@ Routes:
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -33,11 +32,14 @@ from pathlib import Path
 from typing import Any
 
 from agent_sdk.messages import parse_message
-from engine.types import TriggerParams, WebhookConfig
-from fastapi import FastAPI, HTTPException, Request
+from dotenv import load_dotenv
+from engine.types import RunStatus, TriggerParams, WebhookConfig
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.params import Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from loguru import logger
 from pydantic import BaseModel, Field
 from runner.infra import DatabaseConfig, InfraConfig, RedisConfig, S3Config
@@ -46,8 +48,10 @@ from runner.streamer import SSEStreamer
 from sse_starlette.sse import EventSourceResponse
 
 from genai.agents import echo_agent_factory
+from genai.api.auth import verify_api_key
 from genai.config import settings
 
+load_dotenv()  # Load .env file if present (for local dev)
 # ---------------------------------------------------------------------------
 # Loguru configuration — configure once at startup, all packages inherit
 # ---------------------------------------------------------------------------
@@ -170,6 +174,7 @@ async def lifespan(app: FastAPI):
 
     # Register agents — developer adds their agents here
     from genai.agents import (
+        langgraph_agent_factory,
         react_agent_factory,
         simple_agent_factory,
     )
@@ -177,6 +182,7 @@ async def lifespan(app: FastAPI):
     runner.register_agent("echo", echo_agent_factory)
     runner.register_agent("simple", simple_agent_factory)
     runner.register_agent("react", react_agent_factory)
+    runner.register_agent("langgraph-approval", langgraph_agent_factory)
 
     logger.info("{} ready | agents={}", settings.app_name, runner.list_agents())
     yield
@@ -204,6 +210,18 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+api_key_header = APIKeyHeader(name="X-API-Key")
+
+
+AUTHORIZATION_SECRET_KEY = os.getenv("AUTHORIZATION_SECRET_KEY")
+PUBLIC_ENDPOINTS = {"/docs", "/openapi.json", "/health"}
+
+
+router = APIRouter(
+    prefix="/api/v1",
+    dependencies=[Depends(verify_api_key)],
 )
 
 
@@ -250,11 +268,11 @@ class Message(BaseModel):
     content: str = Field(..., description="Message content")
 
 
-class RunRequest(BaseModel):
+class SessionRequest(BaseModel):
     agent_id: str = Field(default="echo", description="Registered agent ID")
     messages: list[Message] = Field(..., description="Conversation messages")
     org_id: str = Field(default="demo-org")
-    proj_id: str = Field(default="demo-proj")
+    thread_id: str = Field(default="demo-proj")
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     webhook: bool = Field(
         default=True, description="Whether to dispatch webhooks for this run"
@@ -266,24 +284,24 @@ class RunRequest(BaseModel):
 
 
 class TriggerResponse(BaseModel):
-    """Returned immediately by POST /run (fire-and-forget)."""
+    """Returned immediately by POST /call (fire-and-forget)."""
 
-    run_id: str
+    thread_id: str
     session_id: str
     status: str  # always "queue" on initial response
 
 
-class RunResponse(BaseModel):
-    run_id: str
+class SessionResponse(BaseModel):
+    thread_id: str
     session_id: str
     status: str
     result: Any = None
     error: str | None = None
-    iteration_count: int = 0
+    run_count: int = 0
 
 
 class StatusResponse(BaseModel):
-    run_id: str
+    session_id: str
     status: str
 
 
@@ -298,7 +316,7 @@ def _get_runner() -> Runner:
     return runner
 
 
-def _build_params(req: RunRequest, stream: bool) -> TriggerParams:
+def _build_params(req: SessionRequest, stream: bool) -> TriggerParams:
     try:
         messages = [parse_message(m.model_dump()) for m in req.messages]
     except ValueError as exc:
@@ -306,10 +324,9 @@ def _build_params(req: RunRequest, stream: bool) -> TriggerParams:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return TriggerParams(
         idem_key=str(uuid.uuid4()),
-        run_id=str(uuid.uuid4()),  # pre-generated so caller can return it immediately
         agent_id=req.agent_id,
         org_id=req.org_id,
-        proj_id=req.proj_id,
+        thread_id=req.thread_id,
         session_id=req.session_id,
         messages=messages,
         stream=stream,
@@ -330,38 +347,38 @@ async def health_check():
     return {"status": "ok", "service": settings.app_name}
 
 
-@app.get("/agents", tags=["Meta"])
+@router.get("/agents", tags=["Agents"])
 async def list_agents():
     """List all registered agent IDs."""
     r = _get_runner()
     return {"agents": r.list_agents()}
 
 
-@app.post("/run", response_model=TriggerResponse, tags=["Agent Run"])
-async def trigger_run(req: RunRequest):
+@router.post("/call", response_model=TriggerResponse, tags=["Agents"])
+async def trigger_session(req: SessionRequest):
     """
     Fire-and-forget agent run.
 
-    Returns immediately with a run_id. The engine executes in the background.
+    Returns immediately with a session_id. The engine executes in the background.
     Poll for progress:
-      GET /run/status/{run_id}  → {status: "wip" | "done" | "fail" | ...}
-      GET /run/{run_id}         → full result once status is "done"
+      GET /session/status/{session_id}  → {status: "wip" | "done" | "fail" | ...}
+      GET /session/{session_id}         → full result once status is "done"
 
-    Use POST /run/sync if you want to block until completion.
+    Use POST /call/sync if you want to block until completion.
     """
     r = _get_runner()
     params = _build_params(req, stream=False)
 
     logger.info(
-        "POST /run (async) | agent={} session={}", req.agent_id, params.session_id
+        "POST /call (async) | agent={} session={}", req.agent_id, params.session_id
     )
 
     async def _run_background() -> None:
         try:
-            await r.trigger_run(params)
+            await r.trigger_session(params)
         except Exception as exc:
             logger.error(
-                "Background run failed | agent={} run={} err={}",
+                "Background run failed | agent={} session={} err={}",
                 req.agent_id,
                 params.idem_key,
                 exc,
@@ -370,38 +387,40 @@ async def trigger_run(req: RunRequest):
     asyncio.create_task(_run_background())
 
     return TriggerResponse(
-        run_id=params.run_id,
+        thread_id=params.thread_id,
         session_id=params.session_id,
         status="queue",
     )
 
 
-@app.post("/run/sync", response_model=RunResponse, tags=["Agent Run"])
-async def trigger_run_sync(req: RunRequest):
+@router.post("/call/sync", response_model=SessionResponse, tags=["Agents"])
+async def trigger_session_sync(req: SessionRequest):
     """
     Blocking agent run — waits for completion before responding.
 
     Suitable for short-lived agents (echo, simple demos).
-    For long-running agents prefer POST /run (fire-and-forget) + polling.
+    For long-running agents prefer POST /call (fire-and-forget) + polling.
     """
     r = _get_runner()
     params = _build_params(req, stream=False)
 
-    logger.info("POST /run/sync | agent={} session={}", req.agent_id, params.session_id)
+    logger.info(
+        "POST /call/sync | agent={} session={}", req.agent_id, params.session_id
+    )
 
-    state, _ = await r.trigger_run(params)
-    return RunResponse(
-        run_id=state.run_id,
+    state, _ = await r.trigger_session(params)
+    return SessionResponse(
+        thread_id=state.thread_id,
         session_id=state.session_id,
         status=state.status.value,
         result=state.result,
         error=state.error,
-        iteration_count=state.iteration,
+        run_count=state.run_id,
     )
 
 
-@app.post("/run/stream", tags=["Agent Run"])
-async def trigger_run_stream(req: RunRequest, request: Request):
+@router.post("/call/stream", tags=["Agents"])
+async def trigger_session_stream(req: SessionRequest, request: Request):
     """
     Trigger a streaming agent run.
     Returns Server-Sent Events (SSE).
@@ -414,7 +433,7 @@ async def trigger_run_stream(req: RunRequest, request: Request):
       data: {"done": true}
 
     Client usage (JavaScript):
-      const es = new EventSource('/run/stream');
+      const es = new EventSource('/call/stream');
       es.onmessage = e => console.log(JSON.parse(e.data).content);
       es.addEventListener('done', () => es.close());
     """
@@ -422,7 +441,7 @@ async def trigger_run_stream(req: RunRequest, request: Request):
     params = _build_params(req, stream=True)
 
     logger.info(
-        "POST /run/stream | agent={} session={}", req.agent_id, params.session_id
+        "POST /call/stream | agent={} session={}", req.agent_id, params.session_id
     )
 
     # Build the streamer up front so we can return EventSourceResponse immediately.
@@ -454,7 +473,7 @@ async def trigger_run_stream(req: RunRequest, request: Request):
         try:
             if r._engine is None:
                 raise RuntimeError("Engine not initialized")
-            await r._engine.trigger_run(params=params, agent=agent)
+            await r._engine.trigger_session(params=params, agent=agent)
         except Exception as exc:
             logger.error(
                 "SSE background run failed | agent={} err={}", req.agent_id, exc
@@ -474,43 +493,100 @@ async def trigger_run_stream(req: RunRequest, request: Request):
     return EventSourceResponse(_event_generator())
 
 
-@app.get("/run/status/{run_id}", response_model=StatusResponse, tags=["Agent Run"])
-async def get_run_status(run_id: str):
+@router.get(
+    "/session/status/{session_id}",
+    response_model=StatusResponse,
+    tags=["Agent Session"],
+)
+async def get_run_status(session_id: str):
     """Poll the status of a run (Redis-backed)."""
     r = _get_runner()
     if r._engine is None:
         raise HTTPException(status_code=503, detail="Engine not initialized")
 
-    status = await r._engine._execution_manager.get_status(run_id)
-    return StatusResponse(run_id=run_id, status=status.value)
+    status = await r._engine._execution_manager.get_status(session_id)
+    return StatusResponse(session_id=session_id, status=status.value)
 
 
-@app.get("/run/{run_id}", tags=["Agent Run"])
-async def get_run_result(run_id: str):
+@router.get("/session/{session_id}", tags=["Agent Session"])
+async def get_run_result(session_id: str):
     """
     Get completed run result and metadata.
     Restores state from Redis checkpoint.
-    Returns 404 if run_id not found.
+    Returns 404 if session_id not found.
     """
     r = _get_runner()
     if r._engine is None:
         raise HTTPException(status_code=503, detail="Engine not initialized")
 
-    state = await r._engine._execution_manager.checkpoint_restore(run_id)
+    state = await r._engine._execution_manager.checkpoint_restore(session_id)
     if state is None:
-        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Run '{session_id}' not found")
 
     return JSONResponse(
         {
-            "run_id": state.run_id,
+            "thread_id": state.thread_id,
             "session_id": state.session_id,
             "status": state.status.value,
             "result": state.result,
             "error": state.error,
-            "iteration_count": state.iteration,
+            "run_count": state.run_id,
             "agent_id": state.agent_id,
         }
     )
+
+
+@router.get("/session/{session_id}/hitl", tags=["Agent Session"])
+async def get_hitl_actions(session_id: str):
+    """
+    List pending human-in-the-loop actions for a paused (status == "hitl") run.
+    Each action looks like {"id": ..., "value": {...}, "response": ... | None}.
+
+    Gated on the run's *live* status, not just on what's stored in Redis.
+    The stored action list is a full-replace, not a queue — once a run
+    resumes past HITL, the last-written list is the answered set that
+    unblocked it, and it stays in Redis until the *next* HITL point
+    overwrites it. Without this status check, a client polling this
+    endpoint after resume would get that stale answered list back with
+    nothing indicating it's no longer pending. Only return actions while
+    the run is actually sitting at HITL.
+    """
+    r = _get_runner()
+    if r._engine is None:
+        raise HTTPException(status_code=503, detail="Engine not initialized")
+
+    status = await r._engine._execution_manager.get_status(session_id)
+    if status != RunStatus.HITL:
+        # Not currently paused on HITL — nothing pending, regardless of
+        # whatever action list happens to still be sitting in Redis.
+        return JSONResponse(
+            {"session_id": session_id, "status": status.value, "actions": []}
+        )
+
+    actions = await r._engine._execution_manager.load_hitl_actions(session_id)
+    return JSONResponse(
+        {"session_id": session_id, "status": status.value, "actions": actions}
+    )
+
+
+@router.post("/session/{session_id}/hitl", tags=["Agent Session"])
+async def submit_hitl_actions(session_id: str, actions: list[dict[str, Any]]):
+    """
+    Attach human responses to a paused run and re-trigger it.
+
+    Body: the full action list (as returned by GET .../hitl) with a
+    `response` field filled in on whichever action(s) a human just answered.
+    This replaces the stored action list — send the complete list, not a diff.
+
+    Once every action has a response, the next POST /call (or /call/sync,
+    /call/stream) with the same session_id resumes the run.
+    """
+    r = _get_runner()
+    if r._engine is None:
+        raise HTTPException(status_code=503, detail="Engine not initialized")
+
+    await r._engine.submit_hitl_response(session_id, actions)
+    return JSONResponse({"session_id": session_id, "status": "recorded"})
 
 
 @app.get("/", tags=["Meta"])
@@ -519,12 +595,15 @@ async def root():
         "service": settings.app_name,
         "version": "0.1.0",
         "endpoints": {
-            "POST /run": "Fire-and-forget trigger — returns run_id immediately, runs in background",
-            "POST /run/sync": "Blocking trigger — waits for completion, returns full result",
-            "POST /run/stream": "Streaming trigger — SSE, token-by-token output",
-            "GET /run/status/{run_id}": "Poll run status (queue | wip | done | fail)",
-            "GET /run/{run_id}": "Get completed run result",
+            "POST /api/v1/call": "Fire-and-forget trigger — returns session_id immediately, runs in background",
+            "POST /api/v1/call/sync": "Blocking trigger — waits for completion, returns full result",
+            "POST /api/v1/call/stream": "Streaming trigger — SSE, token-by-token output",
+            "GET /api/v1/session/status/{session_id}": "Poll run status (queue | wip | done | fail)",
+            "GET /api/v1/session/{session_id}": "Get completed run result",
             "GET /health": "Health check",
             "GET /docs": "Interactive API docs",
         },
     }
+
+
+app.include_router(router)

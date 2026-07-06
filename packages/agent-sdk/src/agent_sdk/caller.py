@@ -52,7 +52,7 @@ class AgentCaller(Generic[TConfig], abc.ABC):
     ToolCaller[ToolCallConfig], …) full static type safety on config.
 
     _usage_tracker and _streamer are class-level None defaults.
-    Runner injects real instances before trigger_run is called:
+    Runner injects real instances before trigger_session is called:
         caller._usage_tracker = engine.usage_tracker
         caller._streamer      = streamer
     """

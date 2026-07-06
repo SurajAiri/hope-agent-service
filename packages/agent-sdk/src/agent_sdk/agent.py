@@ -59,7 +59,7 @@ class Agent(BaseModel):
         agent_id:        ID matching the registration key in Runner
         runner:          The AgentRunner (LLM caller) for this agent
         agent_context:   Tools, connectors, etc. for this agent
-        execution_step:  One iteration of the execution loop (developer-written)
+        execution_step:  One run of the execution loop (developer-written)
         resume_check:    Hooks for resume/HITL/initial/before-run logic (optional)
         metadata:        Developer-defined extra fields (tags, version, etc.)
     """
@@ -130,7 +130,7 @@ def create_agent(
 
     Args:
         agent_id:       Unique agent identifier (matches Runner registration key).
-        agent_profile:  AgentProfile with LLM presets, max_iterations, system_prompt.
+        agent_profile:  AgentProfile with LLM presets, max_runs, system_prompt.
         tools:          List of BaseTool instances. Defaults to empty.
         execution_step: Custom step. Defaults to DefaultExecutionStep (single-turn).
                         Pass ReActExecutionStep() for tool-loop agents.
@@ -144,7 +144,7 @@ def create_agent(
 
         PROFILE = AgentProfile(
             agent_id="my-agent",
-            max_iterations=15,
+            max_runs=15,
             system_prompt="You are a helpful assistant.",
             default_llm=LlmConfig(model="gpt-4o", provider="openai"),
             fast_llm=LlmConfig(model="gpt-4o-mini", provider="openai"),
@@ -178,7 +178,7 @@ def create_simple_agent(
     *,
     tools: "list[BaseTool] | None" = None,
     system_prompt: str | None = None,
-    max_iterations: int = 50,
+    max_runs: int = 50,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ) -> Agent:
@@ -195,7 +195,7 @@ def create_simple_agent(
         provider:       Provider name (e.g. "openai", "anthropic", "gemini").
         tools:          List of BaseTool instances (optional).
         system_prompt:  System prompt injected automatically by DefaultExecutionStep.
-        max_iterations: Max execution loop iterations (default 50).
+        max_runs: Max execution loop iterations (default 50).
         temperature:    Sampling temperature (default 0.7).
         max_tokens:     Max completion tokens (default 4096).
 
@@ -216,7 +216,7 @@ def create_simple_agent(
 
     profile = AgentProfile(
         agent_id=agent_id,
-        max_iterations=max_iterations,
+        max_runs=max_runs,
         system_prompt=system_prompt,
         fallback_llm=LlmConfig(
             model=model,

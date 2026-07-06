@@ -11,21 +11,51 @@ Key design rules (non-negotiable):
   5. UsageTracker exposed as engine.usage_tracker (the only billing-adjacent object that leaves).
   6. Engine controls the full execution flow — ResumeCheck hooks fire through Engine, not themselves.
   7. On AgentCaller exception: catch → ErrorHandler.alert() → set status FAIL → dump → done.
-  8. trigger_run() takes an Agent object (not raw components) — Runner builds and passes it.
+  8. trigger_session() takes an Agent object (not raw components) — Runner builds and passes it.
 
 Execution flow (from arch):
-  trigger_run(params, agent) →
+  trigger_session(params, agent) →
     resume check (status → hitl | queue/created | resume) →
     execution loop (bill check → interrupt check → ExecutionStep.run → checkpoint) →
     post execution (error or status set) →
     dump data (redis → s3, metadata on db) →
     webhook (if enabled)
+
+CONCURRENCY — per-session_id lock (single-process only):
+  Engine is a singleton, but nothing previously stopped two concurrent
+  trigger_session() calls for the *same* session_id from both passing the
+  resume check and both entering the execution loop (e.g. a client
+  double-firing POST /call before the first response comes back). That's
+  not hypothetical — it produces double LLM execution/billing, two writers
+  racing on the same Redis checkpoint, and a silently-swallowed
+  IntegrityError in ExecutionManager._write_run_metadata (session_id is
+  DB-unique). BillManager's per-session_id dict fix is correct but only
+  protects the budget cache; it doesn't stop the double execution itself.
+
+  Fix: _session_lock(session_id) below serializes the *entire*
+  trigger_session() body per session_id. A second call for the same
+  session_id blocks until the first reaches a terminal/HITL status: it
+  then reads that status via the normal resume-check path and no-ops or
+  resumes correctly instead of re-running. This also gives idempotent
+  replay behavior "for free" for retries that reuse the same session_id —
+  no separate idempotency-key system needed for a single-process
+  deployment.
+
+  Scope: this is an in-process asyncio.Lock, keyed by session_id, with a
+  refcount so the dict doesn't grow unbounded for the process lifetime.
+  It does NOT protect against two *different* Engine processes (e.g.
+  multiple runner replicas) executing the same session_id concurrently —
+  that needs a distributed lock (Redis SETNX/Lua-release + TTL renewal),
+  deliberately deferred until there's an actual multi-instance deployment
+  to build and test it against. The seam is here (_session_lock) so that
+  swap is local to this method when the time comes.
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
 import redis.asyncio as aioredis
 from agent_sdk.agent import Agent
@@ -36,11 +66,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from engine.bill_manager import BillManager
 from engine.error_handler import AlertContext, ErrorHandler
 from engine.execution_manager import ExecutionManager
-from engine.types import ExecutionState, RunStatus, TriggerParams
+from engine.types import MAX_RUNS_HARD_CAP, ExecutionState, RunStatus, TriggerParams
 from engine.usage_tracker import UsageTracker
-
-# Maximum iterations safety cap (absolute hard cap regardless of agent config)
-_MAX_ITERATIONS_HARD_CAP = 200
 
 
 class Engine:
@@ -90,7 +117,46 @@ class Engine:
         )
         self._error_handler = ErrorHandler()
 
+        # Per-session_id in-process locks — see module docstring "CONCURRENCY".
+        # Guards the whole trigger_session() body so two concurrent calls for
+        # the same session_id can't both enter the execution loop. Refcounted
+        # so the dicts don't grow unbounded for the life of the process.
+        self._session_locks: dict[str, asyncio.Lock] = {}
+        self._session_lock_refs: dict[str, int] = {}
+
         logger.info("Engine: initialized (singleton) | bucket={}", s3_bucket)
+
+    # ------------------------------------------------------------------
+    # Per-session lock — see module docstring "CONCURRENCY"
+    # ------------------------------------------------------------------
+
+    @asynccontextmanager
+    async def _session_lock(self, session_id: str) -> AsyncIterator[None]:
+        """
+        Serialize all trigger_session() calls for a single session_id.
+
+        In-process only (asyncio.Lock) — does not span multiple Engine
+        processes. See module docstring for why that's an acceptable
+        scope for now and what to swap in when it isn't.
+
+        Refcounted cleanup: the lock object itself is removed from
+        _session_locks once no caller is holding or waiting on it, so a
+        long-lived process doesn't accumulate one Lock per session_id
+        forever. Safe under single-threaded asyncio because dict
+        mutations here never straddle an `await`.
+        """
+        self._session_lock_refs[session_id] = (
+            self._session_lock_refs.get(session_id, 0) + 1
+        )
+        lock = self._session_locks.setdefault(session_id, asyncio.Lock())
+        try:
+            async with lock:
+                yield
+        finally:
+            self._session_lock_refs[session_id] -= 1
+            if self._session_lock_refs[session_id] == 0:
+                del self._session_lock_refs[session_id]
+                del self._session_locks[session_id]
 
     @property
     def usage_tracker(self) -> UsageTracker:
@@ -104,7 +170,7 @@ class Engine:
     # Main entry point — called by Runner
     # ------------------------------------------------------------------
 
-    async def trigger_run(
+    async def trigger_session(
         self,
         params: TriggerParams,
         agent: Agent,
@@ -113,12 +179,31 @@ class Engine:
         Full execution flow for one agent run.
         Runner calls this with the Agent object fully wired (deps injected).
 
+        Serialized per session_id (see module docstring "CONCURRENCY") — a
+        second concurrent call for the same session_id blocks here until the
+        first reaches a terminal/HITL status, then proceeds through the
+        normal resume-check path (no-op if DONE/FAIL, resume if HITL) instead
+        of re-entering the execution loop alongside the first call.
+
         Returns the final ExecutionState (for Runner to send response).
         """
+        async with self._session_lock(params.session_id):
+            return await self._trigger_session_locked(params, agent)
+
+    async def _trigger_session_locked(
+        self,
+        params: TriggerParams,
+        agent: Agent,
+    ) -> ExecutionState:
+        """
+        The original trigger_session() body — only ever called while holding
+        this session_id's lock. See trigger_session() above.
+        """
         logger.info(
-            "Engine: trigger_run | agent={} org={} session={} stream={}",
+            "Engine: trigger_session | agent={} org={} thread={} session={} stream={}",
             params.agent_id,
             params.org_id,
+            params.thread_id,
             params.session_id,
             params.stream,
         )
@@ -126,22 +211,19 @@ class Engine:
         # Build initial state — run_id comes from params (pre-generated by caller)
         # so fire-and-forget clients can poll immediately with the returned run_id.
         #
-        # max_iterations: prefer TriggerParams override (per-request cap), else
+        # max_runs: prefer TriggerParams override (per-request cap), else
         # agent's AgentProfile setting, else ExecutionState default (50).
         _profile_max_iter = getattr(
             getattr(agent.runner, "agent_profile", None),
-            "max_iterations",
+            "max_runs",
             50,
         )
         _effective_max_iter = (
-            params.max_iterations
-            if params.max_iterations is not None
-            else _profile_max_iter
+            params.max_runs if params.max_runs is not None else _profile_max_iter
         )
         state = ExecutionState(
-            run_id=params.run_id,
             org_id=params.org_id,
-            proj_id=params.proj_id,
+            thread_id=params.thread_id,
             session_id=params.session_id,
             idem_key=params.idem_key,
             agent_id=params.agent_id,
@@ -149,30 +231,30 @@ class Engine:
             stream=params.stream,
             webhook=params.webhook,
             webhook_config=params.webhook_config,
-            max_iterations=_effective_max_iter,
+            max_runs=_effective_max_iter,
         )
 
         # Inject run context into UsageTracker (so all logs are tagged with this run)
-        self._usage_tracker.set_run_context(
+        self._usage_tracker.set_session_context(
             {
                 "org_id": params.org_id,
-                "proj_id": params.proj_id,
-                "session_id": params.session_id,
-                "run_id": state.run_id,
                 "agent_id": params.agent_id,
+                "thread_id": params.thread_id,
+                "session_id": state.session_id,
                 "idem_key": params.idem_key,
+                "run_id": state.run_id,
             }
         )
 
         # Load budget for this org/run
-        await self._bill_manager.load_budget(params.org_id, state.run_id)
+        await self._bill_manager.load_budget(params.org_id, state.session_id)
 
         # Store webhook entry if needed
         if params.webhook and params.webhook_config:
             await self._execution_manager.store_webhook_entry(
                 org_id=params.org_id,
-                run_id=state.run_id,
-                session_id=params.session_id,
+                session_id=state.session_id,
+                thread_id=params.thread_id,
                 config=params.webhook_config,
             )
 
@@ -183,17 +265,23 @@ class Engine:
                 # HITL can wait hours or days — far beyond Redis TTL.
                 # Dump state to DB + S3 now so it survives expiry and can be restored.
                 logger.info(
-                    "Engine: HITL pending — dumping state for long-term persistence | run={}",
-                    state.run_id,
+                    "Engine: HITL pending — dumping state for long-term persistence | session={}",
+                    state.session_id,
                 )
                 await self._execution_manager.dump_data(state)
             else:
                 # DONE or FAIL — already completed, don't re-dump.
                 logger.info(
-                    "Engine: run={} already {} — skipping re-run",
-                    state.run_id,
+                    "Engine: session={} already {} — skipping re-run",
+                    state.session_id,
                     state.status.value,
                 )
+            # This call path never reaches the execution loop's finally block,
+            # but load_budget() above still created a local cache entry for
+            # this session_id — release it here so a poll against an
+            # already-DONE/FAIL session, or a session still waiting on HITL,
+            # doesn't leak an entry into BillManager._sessions on every call.
+            self._bill_manager.release(state.session_id)
             return state
 
         # --- EXECUTION LOOP ---
@@ -203,10 +291,10 @@ class Engine:
             # Unrecoverable error from AgentCaller (already re-raised from inside loop)
             alert_ctx = AlertContext(
                 org_id=state.org_id,
-                run_id=state.run_id,
+                thread_id=state.thread_id,
                 session_id=state.session_id,
                 agent_id=state.agent_id,
-                iteration=state.iteration,
+                run_id=state.run_id,
             )
             self._error_handler.alert(error, alert_ctx)
             state.status = RunStatus.FAIL
@@ -216,20 +304,28 @@ class Engine:
             if state.status == RunStatus.WIP:
                 # Loop ended without an explicit status set — treat as complete
                 state.status = RunStatus.DONE
-            await self._execution_manager.set_status(state.run_id, state.status)
+            await self._execution_manager.set_status(state.session_id, state.status)
 
             logger.info(
-                "Engine: run={} finished | status={} iter={}",
-                state.run_id,
+                "Engine: session={} finished | status={} iter={}",
+                state.session_id,
                 state.status.value,
-                state.iteration,
+                state.run_id,
             )
 
             # --- DUMP DATA ---
             await self._execution_manager.dump_data(state)
 
             # Final budget sync to Redis
-            await self._bill_manager.sync_records(state.org_id, state.run_id)
+            await self._bill_manager.sync_records(state.org_id, state.session_id)
+
+            # Drop this session's local budget cache entry now that this
+            # trigger_session() invocation is done. Without this, BillManager's
+            # per-session dict grows by one entry per session for the life of
+            # the process. If this session resumes later (INTERRUPT/HITL),
+            # load_budget() rebuilds the entry fresh from Redis on the next
+            # trigger_session() call, so nothing is lost by releasing here.
+            self._bill_manager.release(state.session_id)
 
         # --- WEBHOOK ---
         if params.webhook:
@@ -249,53 +345,67 @@ class Engine:
         Returns True if the execution loop should run, False if it should be skipped.
         """
         resume_check = agent.resume_check
-        current_status = await self._execution_manager.get_status(state.run_id)
+        current_status = await self._execution_manager.get_status(state.session_id)
         state.status = current_status
 
         logger.debug(
-            "Engine: resume_check | run={} current_status={}",
-            state.run_id,
+            "Engine: resume_check | session={} current_status={}",
+            state.session_id,
             current_status.value,
         )
 
         if current_status == RunStatus.HITL:
-            hitl_actions = await self._execution_manager.load_hitl_actions(state.run_id)
+            hitl_actions = await self._execution_manager.load_hitl_actions(
+                state.session_id
+            )
             state.checkpoint_data["hitl_actions"] = hitl_actions
             completed = resume_check.hitl_action(state)
             if not completed:
                 logger.info(
-                    "Engine: HITL pending | run={} — loop skipped", state.run_id
+                    "Engine: HITL pending | session={} — loop skipped", state.session_id
                 )
                 return False  # WIP never set, loop won't run
 
-        elif current_status in (RunStatus.QUEUE, RunStatus.CREATED):
-            logger.info("Engine: first run | run={}", state.run_id)
+        if current_status in (RunStatus.QUEUE, RunStatus.CREATED):
+            logger.info("Engine: first run | session={}", state.session_id)
             resume_check.initial_work(state)
 
-        elif current_status not in (RunStatus.DONE, RunStatus.FAIL):
+        elif current_status not in (RunStatus.DONE):
             # Resuming from interrupt/checkpoint
             logger.info(
-                "Engine: resuming | run={} from_status={}",
-                state.run_id,
+                "Engine: resuming | session={} from_status={}",
+                state.session_id,
                 current_status.value,
             )
-            restored = await self._execution_manager.checkpoint_restore(state.run_id)
+            restored = await self._execution_manager.checkpoint_restore(
+                state.session_id
+            )
             if restored is not None:
                 state.messages = restored.messages
-                state.iteration = restored.iteration
+                state.run_id = restored.run_id
+                # BUGFIX: restored.checkpoint_data is a stale snapshot captured
+                # at the moment the run paused — BEFORE any human response
+                # existed. If we just fell through from the HITL branch above,
+                # state.checkpoint_data["hitl_actions"] holds the freshly
+                # loaded (possibly now-answered) actions; overwriting
+                # checkpoint_data wholesale would silently throw that away and
+                # hand the agent back its old, unanswered action list. Preserve it.
+                _pending_hitl_actions = state.checkpoint_data.get("hitl_actions")
                 state.checkpoint_data = restored.checkpoint_data
+                if _pending_hitl_actions is not None:
+                    state.checkpoint_data["hitl_actions"] = _pending_hitl_actions
                 logger.debug(
-                    "Engine: checkpoint restored | run={} iter={}",
+                    "Engine: checkpoint restored | session={} iter={}",
+                    state.session_id,
                     state.run_id,
-                    state.iteration,
                 )
             resume_check.resume_work(state)
 
-        # Already done or failed — do not re-run
-        if current_status in (RunStatus.DONE, RunStatus.FAIL):
+        # Already done — do not re-run
+        if current_status in (RunStatus.DONE):
             logger.info(
-                "Engine: run={} already {} — skipping re-run",
-                state.run_id,
+                "Engine: session={} already {} — skipping re-run",
+                state.session_id,
                 current_status.value,
             )
             return False
@@ -305,8 +415,8 @@ class Engine:
 
         # Engine sets WIP AFTER before_run returns
         state.status = RunStatus.WIP
-        await self._execution_manager.set_status(state.run_id, RunStatus.WIP)
-        logger.info("Engine: run={} → WIP | loop starting", state.run_id)
+        await self._execution_manager.set_status(state.session_id, RunStatus.WIP)
+        logger.info("Engine: session={} → WIP | loop starting", state.session_id)
         return True
 
     # ------------------------------------------------------------------
@@ -321,45 +431,57 @@ class Engine:
         """
         The execution loop. Runs while status == WIP.
 
-        Each iteration:
+        Each run:
           [1] Bill check → stop if budget exceeded
           [2] Status check → break on interrupt/hitl
           [3] ExecutionStep.run() ← Agent SDK / developer takes over here
           [4] Periodic checkpoint dump (every N iterations)
           [5] Break on COMPLETE / ERROR / INTERRUPTED
         """
-        hard_cap = min(state.max_iterations, _MAX_ITERATIONS_HARD_CAP)
+        hard_cap = min(state.max_runs, MAX_RUNS_HARD_CAP)
 
-        while state.iteration < hard_cap:
-            state.iteration += 1
+        while state.run_id < hard_cap:
+            state.run_id += 1
+
+            # Update context var with current loop index
+            self._usage_tracker.set_session_context(
+                {
+                    "org_id": state.org_id,
+                    "agent_id": state.agent_id,
+                    "thread_id": state.thread_id,
+                    "session_id": state.session_id,
+                    "idem_key": state.idem_key,
+                    "run_id": state.run_id,
+                }
+            )
 
             logger.debug(
-                "Engine: loop iter={}/{} | run={}",
-                state.iteration,
-                hard_cap,
+                "Engine: loop iter={}/{} | session={}",
                 state.run_id,
+                hard_cap,
+                state.session_id,
             )
 
             # [1] Bill check — fast local check
-            if self._bill_manager.is_budget_exceeded():
+            if self._bill_manager.is_budget_exceeded(state.session_id):
                 logger.warning(
-                    "Engine: budget exceeded | run={} iter={} remaining={:.4f}",
+                    "Engine: budget exceeded | session={} iter={} remaining={:.4f}",
+                    state.session_id,
                     state.run_id,
-                    state.iteration,
-                    self._bill_manager.get_remaining_budget(),
+                    self._bill_manager.get_remaining_budget(state.session_id),
                 )
                 state.status = RunStatus.FAIL
                 state.error = "Budget exceeded"
                 break
 
             # [2] External interrupt / HITL check (Redis poll)
-            live_status = await self._execution_manager.get_status(state.run_id)
+            live_status = await self._execution_manager.get_status(state.session_id)
             if live_status in (RunStatus.INTERRUPT, RunStatus.HITL):
                 logger.info(
-                    "Engine: external {} detected | run={} iter={}",
+                    "Engine: external {} detected | session={} iter={}",
                     live_status.value,
+                    state.session_id,
                     state.run_id,
-                    state.iteration,
                 )
                 state.status = live_status
                 break
@@ -369,7 +491,7 @@ class Engine:
             step_context = StepContext(
                 messages=state.messages,
                 stream=state.stream,
-                iteration=state.iteration,
+                run_id=state.run_id,
                 state_data=dict(state.checkpoint_data),
             )
             try:
@@ -397,13 +519,15 @@ class Engine:
             await self._execution_manager.periodic_dump(state)
 
             # Periodic budget sync to Redis (every 10 iterations)
-            if state.iteration % 10 == 0:
-                await self._bill_manager.sync_records(state.org_id, state.run_id)
+            if state.run_id % 10 == 0:
+                await self._bill_manager.sync_records(state.org_id, state.session_id)
 
             # [5] Break conditions
             if step_result.status == StepStatus.COMPLETE:
                 logger.info(
-                    "Engine: COMPLETE | run={} iter={}", state.run_id, state.iteration
+                    "Engine: COMPLETE | session={} iter={}",
+                    state.session_id,
+                    state.run_id,
                 )
                 state.status = RunStatus.DONE
                 break
@@ -415,9 +539,9 @@ class Engine:
                     "error", "ExecutionStep returned ERROR"
                 )
                 logger.error(
-                    "Engine: step ERROR | run={} iter={} error={}",
+                    "Engine: step ERROR | session={} iter={} error={}",
+                    state.session_id,
                     state.run_id,
-                    state.iteration,
                     step_error,
                 )
                 state.status = RunStatus.FAIL
@@ -426,11 +550,30 @@ class Engine:
 
             if step_result.status == StepStatus.INTERRUPTED:
                 logger.info(
-                    "Engine: step INTERRUPTED | run={} iter={}",
+                    "Engine: step INTERRUPTED | session={} iter={}",
+                    state.session_id,
                     state.run_id,
-                    state.iteration,
                 )
                 state.status = RunStatus.INTERRUPT
+                break
+
+            if step_result.status == StepStatus.HITL:
+                # ExecutionStep is asking for human input before it can
+                # continue (e.g. a LangGraph interrupt()). Persist the
+                # actions the human needs to answer — this is the only
+                # writer for the HITL side-channel; without it a run could
+                # flip to RunStatus.HITL with nothing for ResumeCheck.hitl_action()
+                # to ever read.
+                logger.info(
+                    "Engine: step HITL | session={} iter={} actions={}",
+                    state.session_id,
+                    state.run_id,
+                    len(step_result.hitl_actions or []),
+                )
+                await self._execution_manager.store_hitl_actions(
+                    state.session_id, step_result.hitl_actions or []
+                )
+                state.status = RunStatus.HITL
                 break
 
             # StepStatus.CONTINUE → keep looping
@@ -438,14 +581,34 @@ class Engine:
         else:
             # While-loop exhausted (iterations reached hard_cap without break)
             logger.warning(
-                "Engine: max_iterations={} reached without completion | run={}",
+                "Engine: max_runs={} reached without completion | session={}",
                 hard_cap,
-                state.run_id,
+                state.session_id,
             )
             state.status = RunStatus.FAIL
-            state.error = f"Max iterations ({hard_cap}) reached without completion"
+            state.error = f"Max runs ({hard_cap}) reached without completion"
 
         return state
+
+    # ------------------------------------------------------------------
+    # HITL — public entry point for the application layer
+    # ------------------------------------------------------------------
+
+    async def submit_hitl_response(self, session_id: str, actions: list[dict]) -> None:
+        """
+        Attach human responses to a paused (RunStatus.HITL) run.
+
+        `actions` should be the full action list for this session (typically
+        what your app read via GET/poll, with a `response` field filled in on
+        the ones a human just answered) — this replaces the stored list, it
+        does not merge.
+
+        After calling this, re-trigger the same session_id: Engine's resume
+        check calls agent.resume_check.hitl_action(state) to decide whether
+        every action now has a response and, if so, proceeds into
+        resume_check.resume_work(state) → the execution loop.
+        """
+        await self._execution_manager.store_hitl_actions(session_id, actions)
 
     # ------------------------------------------------------------------
     # Webhook dispatch
@@ -459,15 +622,17 @@ class Engine:
         """
         entries = await self._execution_manager.fetch_org_webhook_entries(
             org_id=state.org_id,
-            run_id=state.run_id,
+            session_id=state.session_id,
         )
         logger.debug(
-            "Engine: dispatching webhooks | run={} count={}", state.run_id, len(entries)
+            "Engine: dispatching webhooks | session={} count={}",
+            state.session_id,
+            len(entries),
         )
         for entry in entries:
             await self._execution_manager.send_webhook(
+                thread_id=state.thread_id,
                 session_id=state.session_id,
-                run_id=state.run_id,
                 status=state.status.value,
                 url=entry["url"],
                 headers=entry.get("headers") or {},
@@ -511,4 +676,3 @@ class Engine:
             await run_migrations(conn)
 
         logger.info("Engine: DB tables created/verified + migrations applied")
-

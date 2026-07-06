@@ -17,7 +17,7 @@ from genai.agents.echo_agent import TimestampTool, UpperCaseTool
 # ReAct agent profile — uses fallback_llm for all calls
 _REACT_PROFILE = AgentProfile(
     agent_id="react",
-    max_iterations=15,
+    max_runs=15,
     system_prompt=(
         "You are a helpful assistant with access to tools. "
         "Use tools when needed, then summarize the results clearly."

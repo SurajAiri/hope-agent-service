@@ -48,13 +48,12 @@ class RunState(Protocol):
 
         class MyResumeCheck(ResumeCheck):
             def before_run(self, state: RunState) -> None:
-                logger.info("Starting run {} for agent {}", state.run_id, state.agent_id)
+                logger.info("Starting run {} for agent {}", state.session_id, state.agent_id)
     """
 
     # Identity
-    run_id: str
     org_id: str
-    proj_id: str
+    thread_id: str
     session_id: str
     agent_id: str
 
@@ -65,8 +64,8 @@ class RunState(Protocol):
     messages: list[Any]
 
     # Execution progress
-    iteration: int
-    max_iterations: int
+    run_id: int
+    max_runs: int
 
     # Arbitrary checkpoint data (agent-defined, for resume logic)
     checkpoint_data: dict[str, Any]

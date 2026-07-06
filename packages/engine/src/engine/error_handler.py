@@ -25,10 +25,10 @@ class AlertContext(BaseModel):
     """Context passed to the error handler when an alert is triggered."""
 
     org_id: str
-    run_id: str
+    thread_id: str
     session_id: str
+    run_id: int = 0
     agent_id: str = ""
-    iteration: int = 0
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -61,20 +61,20 @@ class ErrorHandler:
 
         # Platform alert — concise, structured (flows to log server via runner sink)
         logger.error(
-            "ENGINE_ALERT | type={} | run={} | org={} | agent={} | iter={} | ts={} | msg={}",
+            "ENGINE_ALERT | type={} | session={} | org={} | agent={} | run_id={} | ts={} | msg={}",
             type(error).__name__,
-            context.run_id,
+            context.session_id,
             context.org_id,
             context.agent_id,
-            context.iteration,
+            context.run_id,
             timestamp,
             str(error),
         )
 
         # Developer alert — full traceback for debugging
         logger.error(
-            "ENGINE_ALERT_DETAIL | run={} | traceback:\n{}",
-            context.run_id,
+            "ENGINE_ALERT_DETAIL | session={} | traceback:\n{}",
+            context.session_id,
             tb,
         )
 
@@ -86,10 +86,10 @@ class ErrorHandler:
                     "error_message": str(error),
                     "traceback": tb,
                     "org_id": context.org_id,
-                    "run_id": context.run_id,
+                    "thread_id": context.thread_id,
                     "session_id": context.session_id,
                     "agent_id": context.agent_id,
-                    "iteration": context.iteration,
+                    "run_id": context.run_id,
                     "timestamp": timestamp,
                     "extras": context.extras,
                 })

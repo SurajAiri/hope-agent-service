@@ -180,7 +180,7 @@ class EchoAgentRunner(AgentRunner):
 
 class EchoExecutionStep(ExecutionStep):
     """
-    One iteration of the execution loop for the echo agent.
+    One run of the execution loop for the echo agent.
 
     Developer fully controls what happens here:
       - When to call agent_runner.invoke()
@@ -202,7 +202,7 @@ class EchoExecutionStep(ExecutionStep):
     ) -> StepResult:
         logger.info(
             "EchoExecutionStep: run | iter={} messages={} stream={}",
-            context.iteration,
+            context.run_id,
             len(context.messages),
             context.stream,
         )
@@ -227,7 +227,7 @@ class EchoExecutionStep(ExecutionStep):
             status=StepStatus.COMPLETE,
             messages=updated_messages,
             output=response.content,
-            metadata={"agent": "echo", "iteration": context.iteration},
+            metadata={"agent": "echo", "run_id": context.run_id},
         )
 
 
@@ -239,7 +239,7 @@ class EchoExecutionStep(ExecutionStep):
 def echo_agent_factory(agent_id: str) -> Agent:
     """
     Developer factory function. Returns an Agent object.
-    Called fresh on every trigger_run() — components are lightweight.
+    Called fresh on every trigger_session() — components are lightweight.
 
     Demonstrates create_agent() with a custom runner override:
     EchoAgentRunner is wired manually since it doesn't use LiteLLM.

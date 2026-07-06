@@ -36,10 +36,10 @@ class UsageRecordModel(Base):
     # Identity (Section 9: identity fields)
     step_id: Mapped[str] = mapped_column(String(64), default=lambda: str(uuid.uuid4()), index=True)
     org_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    proj_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    session_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    run_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     agent_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    thread_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    run_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     idem_key: Mapped[str] = mapped_column(String(256), nullable=True)
 
@@ -69,25 +69,24 @@ class UsageRecordModel(Base):
     )
 
 
-class RunMetadataModel(Base):
+class SessionMetadataModel(Base):
     """
-    Final metadata stored on DB after a run completes.
+    Final metadata stored on DB after a session completes.
     Written by ExecutionManager.dump_data().
     """
 
-    __tablename__ = "run_metadata"
+    __tablename__ = "session_metadata"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    run_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
-    session_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    thread_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     org_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    proj_id: Mapped[str] = mapped_column(String(128), nullable=False)
     agent_id: Mapped[str] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     idem_key: Mapped[str] = mapped_column(String(256), nullable=True)
     result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    iteration_count: Mapped[int] = mapped_column(Integer, default=0)
+    run_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -104,8 +103,8 @@ class WebhookEntryModel(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     org_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    run_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    session_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    session_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(String(128), nullable=True)
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
 
     # Extra request headers sent with every webhook POST (JSON object)

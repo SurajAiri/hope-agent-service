@@ -102,7 +102,7 @@ class ToolCaller(AgentCaller[ToolCallConfig]):
     Usage::
 
         tool_caller = ToolCaller(tools=[WebSearchTool(), SendEmailTool()])
-        # Injected by Runner before trigger_run:
+        # Injected by Runner before trigger_session:
         #   tool_caller._usage_tracker = engine.usage_tracker
         #   tool_caller._streamer      = streamer
 

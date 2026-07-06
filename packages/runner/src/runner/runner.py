@@ -15,7 +15,7 @@ Responsibilities:
      - Resolves Agent by agent_id (calls developer's factory function)
      - Creates Streamer (SSE for streaming, Null for non-streaming)
      - Injects _usage_tracker and _streamer into ALL AgentCaller instances
-     - Calls engine.trigger_run(params, agent)
+     - Calls engine.trigger_session(params, agent)
 
 Runner is the ONLY place where infrastructure meets agent logic.
 Agent factory functions return Agent objects — not raw tuples.
@@ -53,7 +53,7 @@ class Runner:
         runner.register_agent("my-agent", my_agent_factory)
 
         # In route handler (per request):
-        state, streamer = await runner.trigger_run(params)
+        state, streamer = await runner.trigger_session(params)
         if params.stream:
             return EventSourceResponse(streamer.stream())
         else:
@@ -140,7 +140,7 @@ class Runner:
         Register an agent factory function.
 
         Factory signature: (agent_id: str) -> Agent
-        The factory is called fresh on every trigger_run() call.
+        The factory is called fresh on every trigger_session() call.
         Components in Agent should be lightweight (stateless is ideal).
         """
         self._agent_factories[agent_id] = factory
@@ -226,7 +226,7 @@ class Runner:
     # Trigger run — called per request
     # ------------------------------------------------------------------
 
-    async def trigger_run(
+    async def trigger_session(
         self, params: TriggerParams
     ) -> tuple[ExecutionState, Streamer]:
         """
@@ -237,7 +237,7 @@ class Runner:
           2. Link agent AgentContext to runner-level shared AgentContext
           3. Create Streamer (SSE or Null depending on params.stream)
           4. Inject _usage_tracker + _streamer into all AgentCaller instances
-          5. Call engine.trigger_run(params, agent)
+          5. Call engine.trigger_session(params, agent)
           6. Close streamer (signals SSE generator to finish)
           7. Return (ExecutionState, Streamer)
 
@@ -255,7 +255,7 @@ class Runner:
             )
 
         logger.info(
-            "Runner: trigger_run | agent={} org={} session={} stream={}",
+            "Runner: trigger_session | agent={} org={} session={} stream={}",
             params.agent_id,
             params.org_id,
             params.session_id,
@@ -280,15 +280,15 @@ class Runner:
 
         # 5. Run
         try:
-            state = await self._engine.trigger_run(params=params, agent=agent)
+            state = await self._engine.trigger_session(params=params, agent=agent)
         finally:
             # 6. Close streamer — signals SSE generator's DONE sentinel
             streamer.close()
 
         logger.info(
-            "Runner: trigger_run done | agent={} run={} status={}",
+            "Runner: trigger_session done | agent={} session={} status={}",
             params.agent_id,
-            state.run_id,
+            state.session_id,
             state.status.value,
         )
         return state, streamer
@@ -353,7 +353,7 @@ class Runner:
         """
         Continuously drain the async S3 dump queue.
 
-        After every engine run (or HITL pause) the run_id is pushed onto a Redis
+        After every engine run (or HITL pause) the session_id is pushed onto a Redis
         list. This worker pops items from that list and uploads the Redis
         checkpoint to S3 via asyncio.to_thread — keeping S3 I/O off the hot path.
 

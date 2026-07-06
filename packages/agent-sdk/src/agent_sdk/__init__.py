@@ -17,27 +17,32 @@ Public API:
     - RunState           (typed protocol for ResumeCheck state parameters)
 
   Execution:
-    - ExecutionStep      (ABC: one iteration — developer implements run())
+    - ExecutionStep      (ABC: one run — developer implements run())
     - DefaultExecutionStep (single-turn, no tool calls)
     - ReActExecutionStep (built-in ReAct tool loop — LLM → tools → loop)
     - StepContext        (input context for each step)
     - StepResult         (output from each step)
-    - StepStatus         (COMPLETE | CONTINUE | ERROR | INTERRUPTED)
+    - StepStatus         (COMPLETE | CONTINUE | ERROR | INTERRUPTED | HITL)
 
   Factories:
     - create_agent()        full-featured factory (requires AgentProfile)
     - create_simple_agent() minimal factory (accepts model+provider directly)
+    - create_langgraph_agent() factory for LangGraph StateGraph-backed agents
+                               (optional — requires the `langgraph` extra)
 
   Decorators:
     - tool               (@tool decorator: async function → BaseTool instance)
 
   LLM Runners:
     - LitellmAgentRunner (AgentRunner backed by LiteLLM — 100+ providers)
+    - LangGraphAgentRunner, LangGraphExecutionStep, LangGraphResumeCheck
+                         (agent_sdk.langgraph — LangGraph StateGraph support,
+                          including HITL via interrupt()/Command(resume=...))
 
   Config:
     - CallerConfig       (base for all caller configs — extend for custom callers)
     - ToolCallConfig     (config for a single tool invocation)
-    - AgentProfile       (agent configuration: LLM presets + max_iterations + system_prompt)
+    - AgentProfile       (agent configuration: LLM presets + max_runs + system_prompt)
     - AgentConfig        (deprecated alias for AgentProfile — back-compat only)
     - LlmConfig          (one LLM model+provider configuration — extends CallerConfig)
 
@@ -60,6 +65,16 @@ from agent_sdk.caller import AgentCaller
 from agent_sdk.caller_config import CallerConfig
 from agent_sdk.decorators import tool
 from agent_sdk.exceptions import AgentConfigurationError
+
+# Optional LangGraph integration. Safe to import unconditionally — nothing in
+# agent_sdk.langgraph imports langgraph/langchain-core at module level, only
+# at call time (see agent_sdk/langgraph/__init__.py).
+from agent_sdk.langgraph import (
+    LangGraphAgentRunner,
+    LangGraphExecutionStep,
+    LangGraphResumeCheck,
+    create_langgraph_agent,
+)
 from agent_sdk.execution_step import (
     DefaultExecutionStep,
     ExecutionStep,
@@ -111,10 +126,14 @@ __all__ = [
     # Factories
     "create_agent",
     "create_simple_agent",
+    "create_langgraph_agent",
     # Decorators
     "tool",
     # LLM runners
     "LitellmAgentRunner",
+    "LangGraphAgentRunner",
+    "LangGraphExecutionStep",
+    "LangGraphResumeCheck",
     # Config
     "CallerConfig",
     "AgentProfile",

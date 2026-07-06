@@ -1,2 +1,5 @@
-def main():
-    print("Hello from genai!")
+"""genai package."""
+
+from .api.api import app
+
+__all__ = ["app"]

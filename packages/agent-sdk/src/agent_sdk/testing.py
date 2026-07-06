@@ -163,7 +163,7 @@ class MockToolCaller(ToolCaller):
 def make_step_context(
     messages: list[AnyMessage] | None = None,
     stream: bool = False,
-    iteration: int = 1,
+    run_id: int = 1,
     state_data: dict[str, Any] | None = None,
 ) -> StepContext:
     """
@@ -172,7 +172,7 @@ def make_step_context(
     Args:
         messages:   Input messages. Defaults to [HumanMessage(content="test")].
         stream:     Whether to simulate streaming mode.
-        iteration:  Loop iteration count (1-indexed).
+        run_id:  Loop run_id count (1-indexed).
         state_data: Arbitrary checkpoint data.
 
     Example::
@@ -182,7 +182,7 @@ def make_step_context(
     return StepContext(
         messages=messages or [HumanMessage(content="test")],
         stream=stream,
-        iteration=iteration,
+        run_id=run_id,
         state_data=state_data or {},
     )
 

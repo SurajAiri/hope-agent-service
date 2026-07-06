@@ -41,7 +41,7 @@ NOT FIXED (intentional, needs broader refactor):
     Proper fix: dead-letter queue or retry with backoff. Out of scope here.
   - Lazy import of UsageRecordModel: symptom of circular dep between engine.db
     and engine.usage_tracker. Needs structural refactor.
-  - Singleton + set_run_context() is architecturally odd even with ContextVar.
+  - Singleton + set_session_context() is architecturally odd even with ContextVar.
     Cleaner: pass run_context into log() directly, or construct UsageTracker per-run.
     ContextVar is the minimal safe fix without changing the Engine/Runner contract.
 """
@@ -72,10 +72,10 @@ if TYPE_CHECKING:
 # safe, but it's unusual and confusing. Module-level is the standard pattern.
 #
 # How it works:
-# When an asyncio task calls _run_context_var.set(ctx), that write is scoped to that
+# When an asyncio task calls _session_context_var.set(ctx), that write is scoped to that
 # task's context. Other concurrent tasks read their own value. No lock needed.
-_run_context_var: ContextVar[dict[str, Any]] = ContextVar(
-    "usage_tracker_run_context", default={}
+_session_context_var: ContextVar[dict[str, Any]] = ContextVar(
+    "usage_tracker_session_context", default={}
 )
 
 
@@ -102,15 +102,15 @@ class UsageTracker:
         # This set holds tasks alive until their done_callback removes them.
         self._background_tasks: set[asyncio.Task] = set()
 
-    def set_run_context(self, context: dict[str, Any]) -> None:
+    def set_session_context(self, context: dict[str, Any]) -> None:
         """
         Called by Engine before starting a run to set identity context.
-        Context keys: org_id, proj_id, session_id, run_id, agent_id, user_id, idem_key.
+        Context keys: org_id, thread_id, session_id, run_id, agent_id, user_id, idem_key.
 
         FIX 1: Writes to ContextVar, not a shared instance dict.
         Each asyncio task calling this gets its own isolated copy.
         """
-        _run_context_var.set(context)
+        _session_context_var.set(context)
 
     def log(
         self,
@@ -133,7 +133,7 @@ class UsageTracker:
         credit_cost = cost.credit_cost if cost is not None else None
 
         # FIX 1: Read from ContextVar, not self._run_context.
-        ctx = _run_context_var.get()
+        ctx = _session_context_var.get()
 
         resource_type = config.resource_type
         resource_id = config.resource_id
@@ -145,9 +145,9 @@ class UsageTracker:
             "timestamp": timestamp,
             # FIX 1: from ContextVar
             "org_id": ctx.get("org_id", ""),
-            "proj_id": ctx.get("proj_id", ""),
+            "thread_id": ctx.get("thread_id", ""),
             "session_id": ctx.get("session_id", ""),
-            "run_id": ctx.get("run_id", ""),
+            "run_id": ctx.get("run_id", 0),
             "agent_id": ctx.get("agent_id", ""),
             "user_id": ctx.get("user_id"),  # intentionally nullable — FK to users table
             "idem_key": ctx.get("idem_key", ""),
@@ -195,7 +195,11 @@ class UsageTracker:
         # the original 'success' gate was hiding that invariant rather than
         # enforcing it. Prefer making it explicit in the cost_fn.
         if credit_cost is not None:
-            self._bill_manager.budget_consume(credit_cost)
+            # FIX (bill_manager.py): budget_consume is now scoped per session_id
+            # since BillManager's local cache moved from shared instance
+            # attributes to a dict keyed by session_id. Same ContextVar this
+            # whole log() call already reads from — no extra plumbing needed.
+            self._bill_manager.budget_consume(ctx.get("session_id", ""), credit_cost)
 
         if self._db_session_factory is not None:
             self._persist_async(log_data, usage, cost)
@@ -246,7 +250,7 @@ class UsageTracker:
                 record = UsageRecordModel(
                     step_id=log_data["step_id"],
                     org_id=log_data["org_id"],
-                    proj_id=log_data["proj_id"],
+                    thread_id=log_data["thread_id"],
                     session_id=log_data["session_id"],
                     run_id=log_data["run_id"],
                     agent_id=log_data["agent_id"],

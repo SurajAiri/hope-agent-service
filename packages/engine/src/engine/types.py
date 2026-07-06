@@ -14,6 +14,13 @@ from typing import Any, Literal
 from agent_sdk.messages import AnyMessage, parse_message
 from pydantic import BaseModel, Field
 
+# Absolute hard cap on execution loop iterations, regardless of agent config
+# or per-request override. Single source of truth — engine.py's execution
+# loop clamps to this, and TriggerParams.max_runs validates against it below,
+# so an out-of-range value fails fast at the API boundary (422) instead of
+# being silently clamped deep inside the loop.
+MAX_RUNS_HARD_CAP = 200
+
 
 # ---------------------------------------------------------------------------
 # WebhookConfig — structured config for a webhook endpoint
@@ -78,9 +85,8 @@ class ExecutionState(BaseModel):
 
     # Identity
     org_id: str
-    proj_id: str
-    session_id: str
-    run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    thread_id: str
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     idem_key: str = ""
 
     # Current status
@@ -93,8 +99,8 @@ class ExecutionState(BaseModel):
     messages: list[AnyMessage] = Field(default_factory=list)
 
     # Execution progress
-    iteration: int = 0
-    max_iterations: int = 50
+    run_id: int = 0
+    max_runs: int = 50
 
     # Streaming
     stream: bool = False
@@ -117,15 +123,14 @@ class ExecutionState(BaseModel):
     def to_dict(self) -> dict:
         return {
             "org_id": self.org_id,
-            "proj_id": self.proj_id,
+            "thread_id": self.thread_id,
             "session_id": self.session_id,
-            "run_id": self.run_id,
             "idem_key": self.idem_key,
             "status": self.status.value,
             "agent_id": self.agent_id,
             "messages": [m.model_dump(exclude_none=True) for m in self.messages],
-            "iteration": self.iteration,
-            "max_iterations": self.max_iterations,
+            "run_id": self.run_id,
+            "max_runs": self.max_runs,
             "stream": self.stream,
             "webhook": self.webhook,
             "webhook_config": (
@@ -147,15 +152,14 @@ class ExecutionState(BaseModel):
         )
         state = cls(
             org_id=data["org_id"],
-            proj_id=data["proj_id"],
+            thread_id=data["thread_id"],
             session_id=data["session_id"],
-            run_id=data["run_id"],
             idem_key=data.get("idem_key", ""),
             status=RunStatus(data["status"]),
             agent_id=data.get("agent_id", ""),
             messages=[parse_message(m) for m in data.get("messages", [])],
-            iteration=data.get("iteration", 0),
-            max_iterations=data.get("max_iterations", 50),
+            run_id=data.get("run_id", 0),
+            max_runs=data.get("max_runs", 50),
             stream=data.get("stream", False),
             webhook=data.get("webhook", True),
             webhook_config=_webhook_config,
@@ -174,21 +178,32 @@ class ExecutionState(BaseModel):
 class TriggerParams(BaseModel):
     """
     All parameters passed when triggering an agent run.
-    Flow: Node.js → Runner → Engine.trigger_run()
+    Flow: Node.js → Runner → Engine.trigger_session()
     """
 
-    idem_key: str                    # Idempotency key for deduplication
+    # NOTE: despite the name, this is NOT a deduplication key — nothing reads
+    # it to detect or reject a duplicate request. It's a fresh uuid4 minted
+    # per HTTP call (see api.py's _build_params) and only used for
+    # tracing/billing correlation (UsageRecord.idem_key, ExecutionState.idem_key).
+    # Request-level idempotency for retries is provided by session_id itself:
+    # a client retrying with the same session_id gets serialized by
+    # Engine._session_lock and then handled by the normal resume-check status
+    # logic (no-op if already DONE/FAIL, resumed if HITL) — see engine.py's
+    # module docstring "CONCURRENCY". If true dedup-by-key is ever needed
+    # (e.g. detecting retries that use a *different* session_id for the same
+    # logical request), this field would need to be client-supplied and
+    # checked against a seen-set — it doesn't do that today.
+    idem_key: str
     agent_id: str                    # Which agent to run
 
     # Identity context
     org_id: str
-    proj_id: str
-    session_id: str
+    thread_id: str
 
-    # Pre-generated run_id (optional — Engine generates one if not set).
-    # Set by the caller (e.g. POST /run endpoint) so it can return a
-    # pollable run_id immediately in fire-and-forget mode.
-    run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Pre-generated session_id (optional — Engine generates one if not set).
+    # Set by the caller (e.g. POST /call endpoint) so it can return a
+    # pollable session_id immediately in fire-and-forget mode.
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
     # Input
     messages: list[AnyMessage] = Field(default_factory=list)
@@ -205,10 +220,19 @@ class TriggerParams(BaseModel):
     # Extra metadata
     extras: dict[str, Any] = Field(default_factory=dict)
 
-    # Optional per-request iteration cap.
-    # If set, overrides agent.runner.agent_profile.max_iterations for this run only.
+    # Optional per-request run cap.
+    # If set, overrides agent.runner.agent_profile.max_runs for this run only.
     # Use to sandbox a specific request without changing the agent's default config.
-    max_iterations: int | None = None
+    #
+    # Bounded [1, MAX_RUNS_HARD_CAP]:
+    #   - Previously unbounded, so 0/negative silently made the execution loop
+    #     not run at all (no error, just a no-op "done" run — confusing for
+    #     callers with no explanation), and values above the hard cap were
+    #     silently clamped by engine.py's min(state.max_runs, hard_cap) with
+    #     no feedback that the requested value was ignored.
+    #   - Now fails fast with a 422 at the API boundary instead of behaving
+    #     unexpectedly deep inside the execution loop.
+    max_runs: int | None = Field(default=None, ge=1, le=MAX_RUNS_HARD_CAP)
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +249,10 @@ class UsageRecord(BaseModel):
 
     # Identity
     org_id: str
-    proj_id: str
+    agent_id: str
+    thread_id: str
     session_id: str
-    run_id: str
+    run_id: int
     step_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)
@@ -252,7 +277,8 @@ class UsageRecord(BaseModel):
     def to_dict(self) -> dict:
         return {
             "org_id": self.org_id,
-            "proj_id": self.proj_id,
+            "agent_id": self.agent_id,
+            "thread_id": self.thread_id,
             "session_id": self.session_id,
             "run_id": self.run_id,
             "step_id": self.step_id,

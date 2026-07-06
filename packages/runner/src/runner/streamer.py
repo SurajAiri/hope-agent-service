@@ -62,7 +62,7 @@ class SSEStreamer(Streamer):
         async def sse_route():
             return EventSourceResponse(streamer.stream())
 
-        # After trigger_run completes:
+        # After trigger_session completes:
         streamer.close()  # signals the stream generator to finish
 
     The stream() generator yields SSE events as strings formatted for sse-starlette.
