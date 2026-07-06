@@ -1,27 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import {
-  Building2,
-  Users,
-  KeyRound,
   LayoutDashboard,
+  Bot,
+  KeyRound,
+  Users,
+  Building2,
+  Settings,
   LogOut,
   ChevronDown,
-  Settings,
+  BookOpen,
+  Check,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
-  { icon: Building2, label: "Organizations", href: "/dashboard/organizations" },
-  { icon: Users, label: "Members", href: "/dashboard/members" },
-  { icon: KeyRound, label: "API Tokens", href: "/dashboard/tokens" },
-  { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+const NAV = [
+  { icon: LayoutDashboard, label: "Overview",      href: "/dashboard" },
+  { icon: Bot,             label: "Agents",         href: "/dashboard/agents" },
+  { icon: KeyRound,        label: "API Tokens",     href: "/dashboard/tokens" },
+  { icon: Users,           label: "Members",        href: "/dashboard/members", ownerOnly: false },
+  { icon: Building2,       label: "Organizations",  href: "/dashboard/organizations" },
+  { icon: Settings,        label: "Settings",       href: "/dashboard/settings" },
 ];
 
 export function Sidebar() {
@@ -29,138 +45,156 @@ export function Sidebar() {
   const router = useRouter();
   const { user, organizations, selectedOrgId, setSelectedOrgId, logout } =
     useAppStore();
-  const selectedOrg = organizations.find((o) => o.id === selectedOrgId);
 
-  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
+  const selectedOrg = organizations.find((o) => o.id === selectedOrgId);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isOrgDropdownOpen) {
-        setIsOrgDropdownOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isOrgDropdownOpen]);
+  const initials = user
+    ? `${user.name?.charAt(0) ?? ""}`.toUpperCase()
+    : "?";
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-card-border bg-card/30 backdrop-blur-md">
-      <div className="p-6">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 font-bold text-xl tracking-tight"
-        >
-          <span className="text-gradient">AaaS</span> Client
-        </Link>
-      </div>
-
-      <div className="px-4 pb-4">
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => setIsOrgDropdownOpen(!isOrgDropdownOpen)}
-            className="flex w-full items-center justify-between rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <span className="truncate">
-              {selectedOrg?.name || "Select Org"}
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${isOrgDropdownOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          {isOrgDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 w-full flex-col rounded-md border border-card-border bg-card/90 backdrop-blur-xl shadow-xl z-50 overflow-hidden">
-              {organizations.map((org) => (
-                <button
-                  key={org.id}
-                  onClick={() => {
-                    setSelectedOrgId(org.id);
-                    setIsOrgDropdownOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center px-3 py-2 text-sm text-left hover:bg-white/10 transition-colors",
-                    selectedOrgId === org.id && "text-primary bg-primary/5",
-                  )}
-                >
-                  {org.name}
-                </button>
-              ))}
-              {organizations.length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  No organizations
-                </div>
-              )}
-            </div>
-          )}
+    <aside className="flex h-screen w-[220px] flex-col border-r border-border bg-sidebar shrink-0">
+      {/* Brand */}
+      <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 border border-primary/20">
+          <Bot className="h-4 w-4 text-primary" />
         </div>
+        <span className="font-semibold text-sm tracking-tight">AgentOS</span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-4">
-        {menuItems.map((item) => {
-          if (item.label === "Members" && selectedOrg?.role === "member") {
-            return null;
-          }
+      {/* Org switcher */}
+      <div className="px-3 py-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex w-full items-center justify-between rounded-md border border-border bg-secondary/60 px-2.5 py-2 text-xs font-medium transition-colors hover:bg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <span className="truncate text-left max-w-[140px]">
+                {selectedOrg?.name ?? "Select organization"}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[200px]">
+            {organizations.map((org) => (
+              <DropdownMenuItem
+                key={org.id}
+                onClick={() => setSelectedOrgId(org.id)}
+                className="flex items-center gap-2 text-xs"
+              >
+                <span className="flex-1 truncate">{org.name}</span>
+                {org.id === selectedOrgId && (
+                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                )}
+              </DropdownMenuItem>
+            ))}
+            {organizations.length === 0 && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                No organizations
+              </div>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/organizations" className="text-xs">
+                <Building2 className="h-3.5 w-3.5" />
+                Manage organizations
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-          const isActive = pathname === item.href;
+      <Separator className="bg-border/50" />
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+        {NAV.map((item) => {
+          const isActive =
+            item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href);
+
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center rounded-md px-3 py-2 text-sm font-medium relative transition-colors",
+                "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors",
                 isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
               )}
             >
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-white/10"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                />
-              )}
               <item.icon
                 className={cn(
-                  "mr-3 h-4 w-4 shrink-0",
-                  isActive ? "text-primary" : "",
+                  "h-4 w-4 shrink-0 transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
                 )}
               />
-              <span className="relative z-10">{item.label}</span>
+              {item.label}
             </Link>
           );
         })}
+
+        {/* Docs link */}
+        <Separator className="my-2 bg-border/50" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium text-muted-foreground cursor-not-allowed opacity-50"
+            >
+              <BookOpen className="h-4 w-4 shrink-0" />
+              Documentation
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            Coming soon
+          </TooltipContent>
+        </Tooltip>
       </nav>
 
-      <div className="p-4 border-t border-card-border">
-        {user && (
-          <div className="mb-4 px-3 flex items-center space-x-3 text-sm">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
-              {user.name.charAt(0)}
-            </div>
-            <div className="overflow-hidden">
-              <p className="font-medium truncate">{user.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user.email}
-              </p>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-destructive"
-        >
-          <LogOut className="mr-3 h-4 w-4 shrink-0" />
-          Logout
-        </button>
+      <Separator className="bg-border/50" />
+
+      {/* User footer */}
+      <div className="px-3 py-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <Avatar className="h-6 w-6 border border-border">
+                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 overflow-hidden text-left">
+                <p className="truncate font-medium">{user?.name ?? "User"}</p>
+                <p className="truncate text-muted-foreground text-[10px]">
+                  {user?.email ?? ""}
+                </p>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-[200px]">
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/settings" className="text-xs">
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="text-xs text-destructive focus:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </div>
+    </aside>
   );
 }

@@ -1,263 +1,277 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAppStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useAppStore } from "@/lib/store";
-import { api } from "@/lib/api";
-import { Trash2, Settings, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+} from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loader2, User, Lock } from "lucide-react";
 
 export default function SettingsPage() {
-  const { organizations, selectedOrgId, fetchOrganizations } = useAppStore();
-  const router = useRouter();
+  const { user, setUser } = useAppStore();
+  const [saving, setSaving] = useState(false);
+  const [changingPwd, setChangingPwd] = useState(false);
 
-  const activeOrg = organizations.find((o) => o.id === selectedOrgId);
+  const [profile, setProfile] = useState({
+    firstName: user?.name?.split(" ")[0] ?? "",
+    lastName:  user?.name?.split(" ").slice(1).join(" ") ?? "",
+    email:     user?.email ?? "",
+  });
 
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteSlugConfirm, setDeleteSlugConfirm] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [pwd, setPwd] = useState({
+    current: "",
+    next: "",
+    confirm: "",
+  });
 
-  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
-
-  // Show to owner or admin
-  const canSeeSettings =
-    activeOrg?.role === "owner" ||
-    activeOrg?.role === "admin" ||
-    activeOrg?.role === "member"; // members can now see it to leave
-  const isOwner = activeOrg?.role === "owner";
-
-  if (!activeOrg) {
-    return (
-      <div className="p-12 text-center text-muted-foreground border rounded-xl border-dashed border-card-border">
-        No organization selected. Please select an organization to view
-        settings.
-      </div>
-    );
-  }
-
-  if (!canSeeSettings) {
-    return (
-      <div className="p-12 text-center text-muted-foreground border rounded-xl border-dashed border-card-border">
-        You do not have permission to view this organization's settings.
-      </div>
-    );
-  }
-
-  const handleDelete = async () => {
-    if (!activeOrg || deleteSlugConfirm !== activeOrg.slug) return;
-
-    setIsDeleting(true);
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
     try {
-      await api.delete(`/organizations/${activeOrg.id}`);
-      toast.success("Organization deleted successfully");
-      setIsDeleteModalOpen(false);
-      setDeleteSlugConfirm("");
-
-      // Select another org if available, or null
-      await fetchOrganizations();
-      router.push("/dashboard/organizations");
+      const res = await api.put("/users", {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      });
+      const updated = res.data ?? res;
+      setUser({
+        ...user!,
+        name: `${updated.firstName} ${updated.lastName}`.trim(),
+        email: updated.email ?? user!.email,
+      });
+      toast.success("Profile updated");
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete organization");
+      toast.error(err.message || "Failed to update profile");
     } finally {
-      setIsDeleting(false);
+      setSaving(false);
     }
   };
 
-  const handleLeave = async () => {
-    if (!activeOrg) return;
-
-    setIsLeaving(true);
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwd.next !== pwd.confirm) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    if (pwd.next.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setChangingPwd(true);
     try {
-      await api.post(`/organizations/${activeOrg.id}/members/leave`, {});
-      toast.success("Left organization successfully");
-      setIsLeaveModalOpen(false);
-
-      // Select another org if available, or null
-      await fetchOrganizations();
-      router.push("/dashboard/organizations");
+      await api.put("/users/password", {
+        currentPassword: pwd.current,
+        newPassword: pwd.next,
+      });
+      toast.success("Password changed");
+      setPwd({ current: "", next: "", confirm: "" });
     } catch (err: any) {
-      toast.error(err.message || "Failed to leave organization");
+      toast.error(err.message || "Failed to change password");
     } finally {
-      setIsLeaving(false);
+      setChangingPwd(false);
     }
   };
+
+  const initials = user
+    ? `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase()
+    : "?";
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Organization Settings
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Manage settings and danger zones for {activeOrg.name}.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-2xl">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage your account preferences.
+        </p>
       </div>
 
-      <Card glass className="relative overflow-hidden">
+      {/* Profile */}
+      <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Settings className="h-5 w-5 text-primary" />
-            </div>
+          <div className="flex items-center gap-4">
+            <Avatar className="h-12 w-12 border border-border">
+              <AvatarFallback className="text-sm bg-primary/10 text-primary font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
             <div>
-              <CardTitle>General Information</CardTitle>
-              <CardDescription>
-                Basic details about your organization
+              <CardTitle className="text-base">
+                <User className="inline h-4 w-4 mr-1.5 text-muted-foreground" />
+                Profile
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Your personal information.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4 max-w-2xl">
-            <div className="space-y-1">
-              <span className="text-sm font-medium text-muted-foreground">
-                Organization Name
-              </span>
-              <p className="font-medium">{activeOrg.name}</p>
+        <Separator />
+        <CardContent className="pt-5">
+          <form onSubmit={handleProfileSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="firstName" className="text-xs">First name</Label>
+                <Input
+                  id="firstName"
+                  value={profile.firstName}
+                  onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lastName" className="text-xs">Last name</Label>
+                <Input
+                  id="lastName"
+                  value={profile.lastName}
+                  onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <span className="text-sm font-medium text-muted-foreground">
-                Organization Slug
-              </span>
-              <p className="font-mono text-sm bg-white/5 p-1 rounded inline-block">
-                {activeOrg.slug}
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={profile.email}
+                disabled
+                className="text-muted-foreground"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Email cannot be changed.
               </p>
             </div>
-            <div className="space-y-1">
-              <span className="text-sm font-medium text-muted-foreground">
-                Your Role
-              </span>
-              <p className="font-medium capitalize">{activeOrg.role}</p>
+            <div className="flex justify-end">
+              <Button type="submit" size="sm" disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save changes
+              </Button>
             </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
 
-      {isOwner ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-12"
-        >
-          <Card className="border-red-500/50 bg-red-950/30 overflow-hidden">
-            <CardHeader className="border-b border-red-500/20 bg-red-900/40 pb-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
-                <CardTitle className="text-red-400">Danger Zone</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="max-w-xl">
-                  <h3 className="font-medium text-red-200">
-                    Delete Organization
-                  </h3>
-                  <p className="text-red-200/70 text-sm mt-1">
-                    Once you delete an organization, there is no going back.
-                    Please be certain. All agents, API keys, and members will be
-                    permanently removed.
-                  </p>
-                </div>
-                <Button
-                  variant="destructive"
-                  onClick={() => setIsDeleteModalOpen(true)}
-                >
-                  Delete {activeOrg.name}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-12"
-        >
-          <Card className="border-red-500/50 bg-red-950/30 overflow-hidden">
-            <CardHeader className="border-b border-red-500/20 bg-red-900/40 pb-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
-                <CardTitle className="text-red-400">Danger Zone</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="max-w-xl">
-                  <h3 className="font-medium text-red-200">
-                    Leave Organization
-                  </h3>
-                  <p className="text-red-200/70 text-sm mt-1">
-                    You will immediately lose access to all agents and resources
-                    in this organization.
-                  </p>
-                </div>
-                <Button
-                  variant="destructive"
-                  onClick={() => setIsLeaveModalOpen(true)}
-                >
-                  Leave {activeOrg.name}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+      {/* Password */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">
+            <Lock className="inline h-4 w-4 mr-1.5 text-muted-foreground" />
+            Password
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Change your account password.
+          </CardDescription>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-5">
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="currentPwd" className="text-xs">Current password</Label>
+              <Input
+                id="currentPwd"
+                type="password"
+                placeholder="••••••••"
+                value={pwd.current}
+                onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="newPwd" className="text-xs">New password</Label>
+              <Input
+                id="newPwd"
+                type="password"
+                placeholder="Minimum 6 characters"
+                value={pwd.next}
+                onChange={(e) => setPwd((p) => ({ ...p, next: e.target.value }))}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPwd" className="text-xs">Confirm new password</Label>
+              <Input
+                id="confirmPwd"
+                type="password"
+                placeholder="••••••••"
+                value={pwd.confirm}
+                onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" size="sm" disabled={changingPwd}>
+                {changingPwd && <Loader2 className="h-4 w-4 animate-spin" />}
+                Change password
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-      <ConfirmDialog
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeleteSlugConfirm("");
-        }}
-        onConfirm={handleDelete}
-        title="Delete Organization"
-        description="This action cannot be undone. This will permanently delete the organization and all associated data."
-        confirmText="Delete Organization"
-        isDestructive
-        isLoading={isDeleting}
-      >
-        <div className="space-y-4 mt-4">
-          <p className="text-sm">
-            Please type{" "}
-            <strong className="font-mono text-destructive">
-              {activeOrg?.slug}
-            </strong>{" "}
-            to confirm.
-          </p>
-          <Input
-            value={deleteSlugConfirm}
-            onChange={(e) => setDeleteSlugConfirm(e.target.value)}
-            placeholder={activeOrg?.slug}
-            className="border-destructive/50 focus-visible:ring-destructive"
-          />
-        </div>
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        isOpen={isLeaveModalOpen}
-        onClose={() => setIsLeaveModalOpen(false)}
-        onConfirm={handleLeave}
-        title="Leave Organization"
-        description={`Are you sure you want to leave ${activeOrg?.name}? You will lose all access immediately.`}
-        confirmText="Leave Organization"
-        isDestructive
-        isLoading={isLeaving}
-      />
+      {/* Danger zone */}
+      <Card className="border-destructive/30">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base text-destructive">Danger zone</CardTitle>
+          <CardDescription className="text-xs">
+            Irreversible actions. Proceed with caution.
+          </CardDescription>
+        </CardHeader>
+        <Separator className="bg-destructive/20" />
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Delete account</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Permanently remove your account and all associated data.
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  Delete account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete your account, all your organizations where
+                    you are the sole owner, and all associated data. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90">
+                    Yes, delete my account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

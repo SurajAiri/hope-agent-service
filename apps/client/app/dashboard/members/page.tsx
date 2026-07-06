@@ -1,388 +1,349 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Modal } from "@/components/ui/Modal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useAppStore } from "@/lib/store";
-import { api } from "@/lib/api";
-import { UserPlus, Mail, Shield, Trash2, Loader2, Clock } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAppStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserPlus, MoreHorizontal, Loader2, Users } from "lucide-react";
+
+type Role = "owner" | "admin" | "member";
+
+interface Member {
+  user: { id: string; firstName: string; lastName: string; email: string };
+  membership: { id: string; role: Role; status: string };
+}
+
+const ROLE_COLORS: Record<Role, string> = {
+  owner:  "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  admin:  "text-blue-400  bg-blue-400/10  border-blue-400/20",
+  member: "text-zinc-400  bg-zinc-400/10  border-zinc-400/20",
+};
 
 export default function MembersPage() {
-  const { user, organizations, selectedOrgId } = useAppStore();
-  const org = organizations.find((o) => o.id === selectedOrgId);
+  const { selectedOrgId, user: currentUser, organizations } = useAppStore();
+  const currentOrg = organizations.find((o) => o.id === selectedOrgId);
+  const canManage = currentOrg?.role === "owner" || currentOrg?.role === "admin";
 
-  const [members, setMembers] = useState<any[]>([]);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
+  const [removing, setRemoving] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("member");
-  const [isInviting, setIsInviting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
-  const [isRemoving, setIsRemoving] = useState(false);
-
-  // Current user's role in this org directly from state (fixes missing button bug)
-  const currentUserRole = org?.role || "member";
-
-  useEffect(() => {
-    if (org && currentUserRole === "member") {
-      window.location.href = "/dashboard";
+  const fetchMembers = useCallback(async () => {
+    if (!selectedOrgId) return;
+    setLoading(true);
+    try {
+      const res = await api.get(`/organizations/${selectedOrgId}/members`);
+      setMembers(Array.isArray(res) ? res : res.data ?? []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load members");
+    } finally {
+      setLoading(false);
     }
-  }, [org, currentUserRole]);
-
-  useEffect(() => {
-    const fetchMembers = async () => {
-      if (!selectedOrgId || currentUserRole === "member") return;
-      setIsLoadingMembers(true);
-      try {
-        const response = await api.get(
-          `/organizations/${selectedOrgId}/members`,
-        );
-        const rawMembers = Array.isArray(response)
-          ? response
-          : response.data || [];
-
-        const formattedMembers = rawMembers.map((item: any) => {
-          const userObj = item.user || {};
-          const membership = item.membership || {};
-
-          return {
-            user: {
-              id: userObj.id,
-              name:
-                `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() ||
-                userObj.email ||
-                "Unknown User",
-              email: userObj.email,
-            },
-            role: membership.role || item.role || "member",
-            status: membership.status || item.status || "active",
-          };
-        });
-
-        setMembers(formattedMembers);
-      } catch (err) {
-        console.error("Failed to fetch members", err);
-      } finally {
-        setIsLoadingMembers(false);
-      }
-    };
-
-    fetchMembers();
   }, [selectedOrgId]);
+
+  useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrgId) return;
-
-    setIsInviting(true);
-    setError(null);
+    if (!selectedOrgId || !inviteEmail.trim()) return;
+    setInviting(true);
     try {
       await api.post(`/organizations/${selectedOrgId}/members`, {
-        email,
-        role,
+        email: inviteEmail.trim(),
+        role: inviteRole,
       });
-
-      // Refresh members
-      const response = await api.get(`/organizations/${selectedOrgId}/members`);
-      const rawMembers = Array.isArray(response)
-        ? response
-        : response.data || [];
-
-      const formattedMembers = rawMembers.map((item: any) => {
-        const userObj = item.user || {};
-        const membership = item.membership || {};
-        return {
-          user: {
-            id: userObj.id,
-            name:
-              `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() ||
-              userObj.email ||
-              "Unknown User",
-            email: userObj.email,
-          },
-          role: membership.role || item.role || "member",
-          status: membership.status || item.status || "active",
-        };
-      });
-
-      setMembers(formattedMembers);
-      toast.success("Invitation sent successfully!");
-
-      setIsModalOpen(false);
-      setEmail("");
-      setRole("member");
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setInviteEmail("");
+      setInviteOpen(false);
+      await fetchMembers();
     } catch (err: any) {
-      setError(err.message || "Failed to invite member");
-      toast.error("Failed to invite member");
+      toast.error(err.message || "Failed to send invitation");
     } finally {
-      setIsInviting(false);
+      setInviting(false);
     }
   };
 
   const handleRemove = async () => {
-    if (!selectedOrgId || !deleteUserId) return;
-
-    setIsRemoving(true);
+    if (!removeTarget || !selectedOrgId) return;
+    setRemoving(true);
     try {
       await api.delete(
-        `/organizations/${selectedOrgId}/members/${deleteUserId}`,
+        `/organizations/${selectedOrgId}/members/${removeTarget.user.id}`,
       );
-      setMembers(members.filter((m) => m.user.id !== deleteUserId));
-      toast.success("Member removed successfully");
-      setDeleteUserId(null);
+      toast.success("Member removed");
+      setRemoveTarget(null);
+      await fetchMembers();
     } catch (err: any) {
       toast.error(err.message || "Failed to remove member");
     } finally {
-      setIsRemoving(false);
+      setRemoving(false);
     }
   };
 
-  const handleRoleChange = async (targetId: string, newRole: string) => {
+  const handleRoleChange = async (userId: string, role: "admin" | "member") => {
     if (!selectedOrgId) return;
-
     try {
-      await api.put(`/organizations/${selectedOrgId}/members/${targetId}`, {
-        role: newRole,
-      });
-      setMembers(
-        members.map((m) =>
-          m.user.id === targetId ? { ...m, role: newRole } : m,
-        ),
-      );
-      toast.success("Role updated successfully");
+      await api.put(`/organizations/${selectedOrgId}/members/${userId}/role`, { role });
+      toast.success("Role updated");
+      await fetchMembers();
     } catch (err: any) {
       toast.error(err.message || "Failed to update role");
     }
   };
 
-  const canRemove = (targetRole: string, targetId: string) => {
-    if (currentUserRole === "member") return false;
-    if (targetRole === "owner") return false;
-    if (targetId === user?.id) return false; // can't remove self from this UI
-    if (currentUserRole === "admin" && targetRole === "admin") return false;
-    return true;
-  };
+  const fullName = (m: Member) =>
+    `${m.user.firstName} ${m.user.lastName}`.trim();
 
-  const canChangeRole = (targetRole: string, targetId: string) => {
-    if (currentUserRole === "member") return false;
-    if (targetRole === "owner") return false;
-    if (targetId === user?.id) return false;
-    if (currentUserRole === "admin" && targetRole === "admin") return false;
-    return true;
-  };
-
-  const canInvite = currentUserRole === "owner" || currentUserRole === "admin";
+  const initials = (m: Member) =>
+    `${m.user.firstName?.charAt(0) ?? ""}${m.user.lastName?.charAt(0) ?? ""}`.toUpperCase();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Members</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage who has access to {org?.name || "this organization"}.
+          <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage who has access to this organization.
           </p>
         </div>
-        {canInvite && (
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            disabled={!selectedOrgId}
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            Invite Member
-          </Button>
+        {canManage && (
+          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Invite member
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Invite member</DialogTitle>
+                <DialogDescription>
+                  They&apos;ll receive an invitation to join this organization.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleInvite} className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="inviteEmail">Email address</Label>
+                  <Input
+                    id="inviteEmail"
+                    type="email"
+                    placeholder="colleague@company.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="inviteRole">Role</Label>
+                  <Select
+                    value={inviteRole}
+                    onValueChange={(v) => setInviteRole(v as "admin" | "member")}
+                  >
+                    <SelectTrigger id="inviteRole">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin — can manage members & tokens</SelectItem>
+                      <SelectItem value="member">Member — read access only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={inviting || !inviteEmail.trim()}>
+                    {inviting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Send invitation
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
-      <Card glass>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs uppercase bg-white/5 border-b border-card-border text-muted-foreground">
-              <tr>
-                <th className="px-6 py-4 font-medium">User</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoadingMembers ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                  </td>
-                </tr>
-              ) : members.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-6 py-8 text-center text-muted-foreground"
-                  >
-                    No members found. Invite someone to get started.
-                  </td>
-                </tr>
-              ) : (
-                members.map((member, i) => (
-                  <motion.tr
-                    key={member.user.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="border-b border-white/5 hover:bg-white/5 transition-colors last:border-0"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
-                          {member.user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium text-foreground">
-                            {member.user.name}
-                            {member.user.id === user?.id && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                (You)
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center mt-0.5">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {member.user.email}
-                          </div>
-                        </div>
+      {/* Table */}
+      <div className="rounded-lg border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-secondary/40 hover:bg-secondary/40">
+              <TableHead className="text-xs">Member</TableHead>
+              <TableHead className="text-xs">Email</TableHead>
+              <TableHead className="text-xs">Role</TableHead>
+              <TableHead className="text-xs">Status</TableHead>
+              {canManage && <TableHead className="w-10" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-7 w-7 rounded-full" />
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  {canManage && <TableCell />}
+                </TableRow>
+              ))
+            ) : members.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={canManage ? 5 : 4} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Users className="h-8 w-8 opacity-30" />
+                    <p className="text-sm">No members yet</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              members.map((m) => {
+                const isCurrentUser = m.user.id === currentUser?.id;
+                return (
+                  <TableRow key={m.membership.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-7 w-7 border border-border">
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                            {initials(m)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">
+                          {fullName(m)}
+                          {isCurrentUser && (
+                            <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
+                          )}
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {member.status === "pending" ? (
-                        <span className="inline-flex items-center text-xs bg-amber-500/20 text-amber-500 px-2 py-1 rounded-full">
-                          <Clock className="h-3 w-3 mr-1" /> Pending
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {canChangeRole(member.role, member.user.id) ? (
-                        <select
-                          value={member.role}
-                          onChange={(e) =>
-                            handleRoleChange(member.user.id, e.target.value)
-                          }
-                          className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-foreground focus:ring-1 focus:ring-primary"
-                        >
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      ) : (
-                        <div className="flex items-center text-muted-foreground capitalize">
-                          <Shield className="h-4 w-4 mr-2" />
-                          {member.role}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {canRemove(member.role, member.user.id) &&
-                        (member.status === "pending" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // We can reuse the remove handler for canceling
-                              setDeleteUserId(member.user.id);
-                            }}
-                            className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600"
-                          >
-                            Cancel Invite
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteUserId(member.user.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ))}
-                    </td>
-                  </motion.tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {m.user.email}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium capitalize ${ROLE_COLORS[m.membership.role]}`}>
+                        {m.membership.role}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={m.membership.status === "active" ? "default" : "secondary"}
+                        className="text-[10px] capitalize"
+                      >
+                        {m.membership.status}
+                      </Badge>
+                    </TableCell>
+                    {canManage && (
+                      <TableCell>
+                        {!isCurrentUser && m.membership.role !== "owner" && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-xs"
+                                onClick={() => handleRoleChange(m.user.id, m.membership.role === "admin" ? "member" : "admin")}
+                              >
+                                Change to {m.membership.role === "admin" ? "Member" : "Admin"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-xs text-destructive focus:text-destructive"
+                                onClick={() => setRemoveTarget(m)}
+                              >
+                                Remove member
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Invite Team Member"
-        description={`Send an invitation to join ${org?.name}.`}
-      >
-        <form onSubmit={handleInvite} className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm rounded-md bg-destructive/10 text-red-500 border border-destructive/20">
-              {error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="email">
-              Email Address
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="colleague@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&>option]:bg-background"
+      {/* Remove confirmation */}
+      <AlertDialog open={!!removeTarget} onOpenChange={() => setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {removeTarget ? fullName(removeTarget) : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They will lose access to this organization immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemove}
+              disabled={removing}
+              className="bg-destructive hover:bg-destructive/90"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isInviting}>
-              {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send Invite
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <ConfirmDialog
-        isOpen={!!deleteUserId}
-        onClose={() => setDeleteUserId(null)}
-        onConfirm={handleRemove}
-        title="Remove Member"
-        description="Are you sure you want to remove this member from the organization? They will lose all access immediately."
-        confirmText="Remove Member"
-        isDestructive
-        isLoading={isRemoving}
-      />
+              {removing && <Loader2 className="h-4 w-4 animate-spin" />}
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

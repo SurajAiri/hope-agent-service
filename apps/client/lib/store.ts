@@ -56,8 +56,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchUser: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Wait for API to resolve
-      const { user } = await api.get("/auth/me");
+      const res = await api.get("/auth/me");
+      // API returns { data: { user: { id, firstName, lastName, email, ... } } }
+      const raw = res?.data?.user ?? res?.user ?? res?.data ?? res;
+      const user: User = {
+        id: raw.id,
+        name: `${raw.firstName ?? ""} ${raw.lastName ?? ""}`.trim() || raw.name || raw.email,
+        email: raw.email,
+      };
       set({ user, isLoading: false });
     } catch (error: any) {
       console.error("Failed to fetch user:", error);

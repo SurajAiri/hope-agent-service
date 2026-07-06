@@ -1,31 +1,37 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import { Toaster } from "sonner";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+import { TooltipProvider } from "@/components/ui/tooltip";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AaaS Developer Client",
-  description: "Agent as a Service Developer Portal",
+  title: { default: "AgentOS", template: "%s — AgentOS" },
+  description: "Developer platform for building and running AI agents at scale.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} h-full antialiased dark`}
-    >
-      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased selection:bg-primary/30`}>
-        {children}
-        <Toaster theme="dark" position="bottom-right" />
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body>
+        <TooltipProvider delayDuration={300}>
+          {children}
+          <Toaster
+            position="bottom-right"
+            theme="dark"
+            toastOptions={{
+              style: {
+                background: "oklch(0.14 0 0)",
+                border: "1px solid oklch(1 0 0 / 8%)",
+                color: "oklch(0.97 0 0)",
+              },
+            }}
+          />
+        </TooltipProvider>
       </body>
     </html>
   );

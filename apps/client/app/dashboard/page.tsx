@@ -1,186 +1,258 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
-import { Button } from "@/components/ui/Button"
-import { useAppStore } from "@/lib/store"
-import { api } from "@/lib/api"
-import { Activity, Users, KeyRound, Zap, MailPlus, Check, X, Loader2 } from "lucide-react"
-import { toast } from "sonner"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAppStore } from "@/lib/store";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  KeyRound,
+  Users,
+  Bot,
+  ArrowRight,
+  Check,
+  X,
+  MailCheck,
+} from "lucide-react";
 
-export default function DashboardOverview() {
-  const { organizations, selectedOrgId, fetchOrganizations } = useAppStore()
-  const org = organizations.find((o) => o.id === selectedOrgId)
+interface Invitation {
+  membership: { id: string; role: string };
+  organization: { id: string; name: string };
+}
 
-  const [invitations, setInvitations] = useState<any[]>([])
-  const [isLoadingInvites, setIsLoadingInvites] = useState(true)
+interface QuickStat {
+  label: string;
+  value: string | number;
+  href: string;
+  icon: React.ElementType;
+  description: string;
+}
+
+export default function DashboardPage() {
+  const { organizations, selectedOrgId, fetchOrganizations } = useAppStore();
+  const org = organizations.find((o) => o.id === selectedOrgId);
+
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(true);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchInvites = async () => {
+    const load = async () => {
       try {
-        const response = await api.get('/users/me/invitations')
-        setInvitations(Array.isArray(response) ? response : response.data || [])
-      } catch (err) {
-        console.error("Failed to load invitations", err)
+        const res = await api.get("/users/me/invitations");
+        setInvitations(Array.isArray(res) ? res : res.data ?? []);
+      } catch {
+        // silently ignore
       } finally {
-        setIsLoadingInvites(false)
+        setLoadingInvites(false);
       }
-    }
-    fetchInvites()
-  }, [])
+    };
+    load();
+  }, []);
 
   const handleAccept = async (orgId: string) => {
+    setRespondingId(orgId);
     try {
-      await api.post(`/organizations/${orgId}/members/accept`, {})
-      toast.success("Invitation accepted!")
-      setInvitations(invites => invites.filter(i => i.organization.id !== orgId))
-      await fetchOrganizations()
-    } catch(err: any) {
-      toast.error(err.message || "Failed to accept invitation")
+      await api.post(`/organizations/${orgId}/members/accept`, {});
+      toast.success("Invitation accepted");
+      setInvitations((prev) => prev.filter((i) => i.organization.id !== orgId));
+      await fetchOrganizations();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to accept");
+    } finally {
+      setRespondingId(null);
     }
-  }
+  };
 
   const handleReject = async (orgId: string) => {
+    setRespondingId(orgId);
     try {
-      await api.post(`/organizations/${orgId}/members/reject`, {})
-      toast.success("Invitation rejected")
-      setInvitations(invites => invites.filter(i => i.organization.id !== orgId))
-    } catch(err: any) {
-      toast.error(err.message || "Failed to reject invitation")
+      await api.post(`/organizations/${orgId}/members/reject`, {});
+      toast.success("Invitation declined");
+      setInvitations((prev) => prev.filter((i) => i.organization.id !== orgId));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to decline");
+    } finally {
+      setRespondingId(null);
     }
-  }
+  };
 
-  const stats = [
-    { name: "Active Agents", value: "12", icon: Zap, change: "+2 from last week" },
-    { name: "Total API Requests", value: "1.2m", icon: Activity, change: "+15% from last month" },
-    { name: "Team Members", value: "4", icon: Users, change: "No change" },
-    { name: "Active Tokens", value: "3", icon: KeyRound, change: "+1 recently created" },
-  ]
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  }
-
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-  }
+  const stats: QuickStat[] = [
+    {
+      label: "API Tokens",
+      value: "—",
+      href: "/dashboard/tokens",
+      icon: KeyRound,
+      description: "Manage your org API keys",
+    },
+    {
+      label: "Team Members",
+      value: org ? "—" : "—",
+      href: "/dashboard/members",
+      icon: Users,
+      description: "Invite and manage your team",
+    },
+    {
+      label: "Agents",
+      value: "—",
+      href: "/dashboard/agents",
+      icon: Bot,
+      description: "Browse and test agents",
+    },
+  ];
 
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="text-muted-foreground mt-2">
-          Here&apos;s what&apos;s happening in {org?.name || "your organization"}.
+        <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {org ? (
+            <>
+              <span className="text-foreground font-medium">{org.name}</span>{" "}
+              workspace
+              <Badge variant="outline" className="ml-2 text-[10px] h-4 font-mono">
+                {org.role}
+              </Badge>
+            </>
+          ) : (
+            "Select an organization to get started"
+          )}
         </p>
       </div>
 
-      <AnimatePresence>
-        {!isLoadingInvites && invitations.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-3"
-          >
-            <h2 className="text-lg font-semibold flex items-center text-amber-500">
-              <MailPlus className="mr-2 h-5 w-5" /> Pending Invitations
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              {invitations.map((invite) => (
-                <Card key={invite.membership.id} className="border-amber-500/30 bg-amber-500/5">
-                  <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold">{invite.organization.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        You have been invited as a <span className="capitalize text-foreground font-medium">{invite.membership.role}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <Button variant="outline" size="sm" onClick={() => handleReject(invite.organization.id)} className="w-full sm:w-auto">
-                        <X className="h-4 w-4 mr-1" /> Reject
-                      </Button>
-                      <Button size="sm" onClick={() => handleAccept(invite.organization.id)} className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-amber-950">
-                        <Check className="h-4 w-4 mr-1" /> Accept
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.div 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-      >
-        {stats.map((stat, index) => (
-          <motion.div key={index} variants={item}>
-            <Card glass className="relative overflow-hidden group hover:border-primary/50 transition-colors">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-                <CardTitle className="text-sm font-medium">
-                  {stat.name}
-                </CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stat.change}
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-7"
-      >
-        <Card glass className="col-span-4">
-          <CardHeader>
-            <CardTitle>Usage Overview</CardTitle>
-            <CardDescription>
-              API request volume over the last 30 days.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-80 flex items-center justify-center border-t border-white/5">
-            <span className="text-muted-foreground">Chart placeholder</span>
-          </CardContent>
-        </Card>
-        <Card glass className="col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Latest actions across your team.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="border-t border-white/5 pt-6 space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <div className="h-2 w-2 rounded-full bg-primary/50" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">New API Token created</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago by You</p>
+      {/* Pending invitations */}
+      {!loadingInvites && invitations.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <MailCheck className="h-4 w-4 text-amber-400" />
+            <span>Pending invitations</span>
+            <Badge variant="secondary" className="text-[10px]">
+              {invitations.length}
+            </Badge>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {invitations.map((invite) => (
+              <div
+                key={invite.membership.id}
+                className="flex items-center justify-between rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{invite.organization.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 capitalize">
+                    As {invite.membership.role}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    disabled={respondingId === invite.organization.id}
+                    onClick={() => handleReject(invite.organization.id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 bg-amber-400 hover:bg-amber-400/90 text-amber-900 font-medium"
+                    disabled={respondingId === invite.organization.id}
+                    onClick={() => handleAccept(invite.organization.id)}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Accept
+                  </Button>
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      </motion.div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick stats */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <Link key={stat.href} href={stat.href} className="group block">
+            <Card className="h-full transition-colors hover:border-border/80 hover:bg-card/80">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardDescription className="text-xs font-medium uppercase tracking-wider">
+                    {stat.label}
+                  </CardDescription>
+                  <stat.icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{stat.description}</p>
+                <div className="flex items-center gap-1 mt-3 text-xs text-primary font-medium">
+                  <span>View</span>
+                  <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Getting started */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Getting started</CardTitle>
+          <CardDescription>
+            Follow these steps to integrate AgentOS into your project.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {[
+            {
+              step: "1",
+              title: "Create an API token",
+              desc: "Generate a token from API Tokens — use it to authenticate your requests.",
+              href: "/dashboard/tokens",
+            },
+            {
+              step: "2",
+              title: "Browse available agents",
+              desc: "Check the Agents page to see registered agents and their IDs.",
+              href: "/dashboard/agents",
+            },
+            {
+              step: "3",
+              title: "Fire your first run",
+              desc: "POST to /organizations/{orgId}/agents/run with your agent_id and messages.",
+              href: "/dashboard/agents",
+              mono: true,
+            },
+          ].map((item) => (
+            <Link
+              key={item.step}
+              href={item.href}
+              className="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-secondary/60"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground mt-0.5">
+                {item.step}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className={`text-xs text-muted-foreground mt-0.5 ${item.mono ? "font-mono" : ""}`}>
+                  {item.desc}
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5" />
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }
