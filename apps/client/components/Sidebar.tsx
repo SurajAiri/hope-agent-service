@@ -72,9 +72,16 @@ export function Sidebar() {
     router.push("/login");
   };
 
-  const userInitials = user
-    ? `${user.name?.charAt(0) ?? ""}`.toUpperCase()
-    : "?";
+  const getInitials = (name?: string) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const userInitials = getInitials(user?.name);
 
   const orgInitial = selectedOrg?.name?.charAt(0).toUpperCase() ?? "?";
   const orgGradient = selectedOrg ? orgColor(selectedOrg.name) : AVATAR_COLORS[0];
@@ -258,7 +265,7 @@ export function Sidebar() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 overflow-hidden text-left">
-                  <p className="truncate font-semibold text-white/90">{user?.name ?? "User"}</p>
+                  <p className="truncate font-semibold text-white/90">{user?.name || "User"}</p>
                   <p className="truncate text-white/35 text-[10px]">
                     {user?.email ?? ""}
                   </p>
@@ -268,9 +275,9 @@ export function Sidebar() {
             }
           />
           <DropdownMenuContent align="end" side="top" className="w-[200px]">
-            <div className="px-2 py-1.5">
-              <p className="text-xs font-semibold truncate">{user?.name}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+            <div className="px-3 py-2.5">
+              <p className="text-sm font-semibold truncate text-white/90">{user?.name || "User"}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem

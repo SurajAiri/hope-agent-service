@@ -56,9 +56,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchUser: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await api.get("/auth/me");
-      // API returns { data: { user: { id, firstName, lastName, email, ... } } }
-      const raw = res?.data?.user ?? res?.user ?? res?.data ?? res;
+      const res = await api.get("/users");
+      const raw = res?.data ?? res;
       const user: User = {
         id: raw.id,
         name: `${raw.firstName ?? ""} ${raw.lastName ?? ""}`.trim() || raw.name || raw.email,

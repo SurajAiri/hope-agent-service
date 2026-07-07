@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Bot, Mail, Lock, User } from "lucide-react";
 
@@ -18,13 +19,23 @@ export default function RegisterPage() {
     lastName: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setIsLoading(true);
     try {
-      const res = await api.post("/auth/register", form);
+      const res = await api.post("/auth/register", {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        password: form.password,
+      });
       const token = res?.data?.token ?? res?.token;
       if (!token) throw new Error("No token received");
       localStorage.setItem("token", token);
@@ -120,22 +131,40 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-1.5">
               <Label htmlFor="password" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none z-10" />
+                <PasswordInput
                   id="password"
-                  type="password"
                   placeholder="Minimum 6 characters"
                   autoComplete="new-password"
                   required
                   minLength={6}
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                Confirm Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none z-10" />
+                <PasswordInput
+                  id="confirmPassword"
+                  placeholder="Confirm your password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={form.confirmPassword}
+                  onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
                   className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>

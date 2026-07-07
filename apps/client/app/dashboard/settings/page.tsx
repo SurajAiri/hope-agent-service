@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
@@ -19,8 +19,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, User, Lock, TriangleAlert } from "lucide-react";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Loader2, User, Lock, TriangleAlert, Edit2 } from "lucide-react";
 
 function SectionCard({
   children,
@@ -37,9 +47,7 @@ function SectionCard({
         border: danger
           ? "1px solid oklch(0.63 0.22 25 / 25%)"
           : "1px solid oklch(1 0 0 / 8%)",
-        boxShadow: danger
-          ? "inset 3px 0 0 oklch(0.63 0.22 25 / 40%)"
-          : "none",
+        boxShadow: danger ? "inset 3px 0 0 oklch(0.63 0.22 25 / 40%)" : "none",
       }}
     >
       {children}
@@ -73,7 +81,9 @@ function SectionHeader({
       >
         <Icon
           className="h-4 w-4"
-          style={{ color: danger ? "oklch(0.72 0.22 25)" : "oklch(0.78 0.18 268)" }}
+          style={{
+            color: danger ? "oklch(0.72 0.22 25)" : "oklch(0.78 0.18 268)",
+          }}
         />
       </div>
       <div>
@@ -94,11 +104,24 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [changingPwd, setChangingPwd] = useState(false);
 
+  const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({
     firstName: user?.name?.split(" ")[0] ?? "",
-    lastName:  user?.name?.split(" ").slice(1).join(" ") ?? "",
-    email:     user?.email ?? "",
+    lastName: user?.name?.split(" ").slice(1).join(" ") ?? "",
+    email: user?.email ?? "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.name.split(" ")[0] ?? "",
+        lastName: user.name.split(" ").slice(1).join(" ") ?? "",
+        email: user.email ?? "",
+      });
+    }
+  }, [user]);
+
+  const [pwdOpen, setPwdOpen] = useState(false);
 
   const [pwd, setPwd] = useState({
     current: "",
@@ -121,6 +144,7 @@ export default function SettingsPage() {
         email: updated.email ?? user!.email,
       });
       toast.success("Profile updated");
+      setProfileOpen(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");
     } finally {
@@ -146,6 +170,7 @@ export default function SettingsPage() {
       });
       toast.success("Password changed");
       setPwd({ current: "", next: "", confirm: "" });
+      setPwdOpen(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to change password");
     } finally {
@@ -153,9 +178,16 @@ export default function SettingsPage() {
     }
   };
 
-  const initials = user
-    ? `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase()
-    : "?";
+  const getInitials = (name?: string) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const initials = getInitials(user?.name);
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -174,15 +206,16 @@ export default function SettingsPage() {
           title="Profile"
           description="Your personal information visible to teammates."
         />
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           {/* Avatar */}
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-5">
             <div className="relative">
-              <Avatar className="h-16 w-16">
+              <Avatar className="h-20 w-20">
                 <AvatarFallback
-                  className="text-xl font-bold text-white"
+                  className="text-2xl font-bold text-white"
                   style={{
-                    background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
+                    background:
+                      "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
                   }}
                 >
                   {initials}
@@ -192,67 +225,117 @@ export default function SettingsPage() {
               <div
                 className="absolute inset-0 rounded-full pointer-events-none"
                 style={{
-                  boxShadow: "0 0 0 2px oklch(0.07 0.012 268), 0 0 0 4px oklch(0.65 0.22 268 / 40%)",
+                  boxShadow:
+                    "0 0 0 2px oklch(0.07 0.012 268), 0 0 0 4px oklch(0.65 0.22 268 / 40%)",
                 }}
               />
             </div>
             <div>
-              <p className="text-sm font-bold">{user?.name}</p>
-              <p className="text-xs text-white/40">{user?.email}</p>
+              <p className="text-lg font-bold">{user?.name || "User"}</p>
+              <p className="text-sm text-white/45">{user?.email}</p>
             </div>
           </div>
 
-          <form onSubmit={handleProfileSave} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="firstName" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                  First name
-                </Label>
-                <Input
-                  id="firstName"
-                  value={profile.firstName}
-                  onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
-                  required
-                  className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="lastName" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                  Last name
-                </Label>
-                <Input
-                  id="lastName"
-                  value={profile.lastName}
-                  onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
-                  className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={profile.email}
-                disabled
-                className="h-10 bg-white/[0.02] border-white/[0.05] text-white/30 cursor-not-allowed"
-              />
-              <p className="text-[11px] text-white/25">Email address cannot be changed.</p>
-            </div>
-            <div className="flex justify-end pt-1">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={saving}
-                className="btn-gradient text-white border-0 font-semibold h-9 px-5"
+          <div>
+            <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+              <DialogTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 h-9 px-4 font-semibold"
+                  />
+                }
               >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save changes
-              </Button>
-            </div>
-          </form>
+                <Edit2 className="h-3.5 w-3.5" />
+                Edit Profile
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Edit Profile</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleProfileSave} className="space-y-5 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="firstName"
+                        className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      >
+                        First name
+                      </Label>
+                      <Input
+                        id="firstName"
+                        value={profile.firstName}
+                        onChange={(e) =>
+                          setProfile((p) => ({
+                            ...p,
+                            firstName: e.target.value,
+                          }))
+                        }
+                        required
+                        className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="lastName"
+                        className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      >
+                        Last name
+                      </Label>
+                      <Input
+                        id="lastName"
+                        value={profile.lastName}
+                        onChange={(e) =>
+                          setProfile((p) => ({
+                            ...p,
+                            lastName: e.target.value,
+                          }))
+                        }
+                        className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="email"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                    >
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={profile.email}
+                      disabled
+                      className="h-10 bg-white/[0.02] border-white/[0.05] text-white/30 cursor-not-allowed"
+                    />
+                    <p className="text-[11px] text-white/25">
+                      Email address cannot be changed.
+                    </p>
+                  </div>
+                  <DialogFooter>
+                    <DialogClose
+                      render={
+                        <Button variant="ghost" size="sm" type="button" />
+                      }
+                    >
+                      Cancel
+                    </DialogClose>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={saving}
+                      className="btn-gradient text-white border-0 font-semibold h-9 px-5"
+                    >
+                      {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Save changes
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </SectionCard>
 
@@ -263,65 +346,114 @@ export default function SettingsPage() {
           title="Password"
           description="Change your account password."
         />
-        <div className="px-6 py-6">
-          <form onSubmit={handlePasswordChange} className="space-y-5">
-            <div className="space-y-1.5">
-              <Label htmlFor="currentPwd" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                Current password
-              </Label>
-              <Input
-                id="currentPwd"
-                type="password"
-                placeholder="••••••••"
-                value={pwd.current}
-                onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))}
-                required
-                className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
-              />
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold">Change password</p>
+              <p className="text-xs text-white/40 mt-0.5">
+                Ensure your account is using a long, random password to stay
+                secure.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="newPwd" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                  New password
-                </Label>
-                <Input
-                  id="newPwd"
-                  type="password"
-                  placeholder="Min. 6 characters"
-                  value={pwd.next}
-                  onChange={(e) => setPwd((p) => ({ ...p, next: e.target.value }))}
-                  required
-                  minLength={6}
-                  className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmPwd" className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                  Confirm password
-                </Label>
-                <Input
-                  id="confirmPwd"
-                  type="password"
-                  placeholder="••••••••"
-                  value={pwd.confirm}
-                  onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))}
-                  required
-                  className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end pt-1">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={changingPwd}
-                className="btn-gradient text-white border-0 font-semibold h-9 px-5"
+            <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
+              <DialogTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 font-semibold"
+                  />
+                }
               >
-                {changingPwd && <Loader2 className="h-4 w-4 animate-spin" />}
                 Change password
-              </Button>
-            </div>
-          </form>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Change Password</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={handlePasswordChange}
+                  className="space-y-5 pt-4"
+                >
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="currentPwd"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                    >
+                      Current password
+                    </Label>
+                    <PasswordInput
+                      id="currentPwd"
+                      placeholder="••••••••"
+                      value={pwd.current}
+                      onChange={(e) =>
+                        setPwd((p) => ({ ...p, current: e.target.value }))
+                      }
+                      required
+                      className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="newPwd"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                    >
+                      New password
+                    </Label>
+                    <PasswordInput
+                      id="newPwd"
+                      placeholder="Min. 6 characters"
+                      value={pwd.next}
+                      onChange={(e) =>
+                        setPwd((p) => ({ ...p, next: e.target.value }))
+                      }
+                      required
+                      minLength={6}
+                      className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="confirmPwd"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                    >
+                      Confirm password
+                    </Label>
+                    <PasswordInput
+                      id="confirmPwd"
+                      placeholder="••••••••"
+                      value={pwd.confirm}
+                      onChange={(e) =>
+                        setPwd((p) => ({ ...p, confirm: e.target.value }))
+                      }
+                      required
+                      className="h-10 bg-white/[0.04] border-white/[0.08] focus-visible:border-primary/50"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <DialogClose
+                      render={
+                        <Button variant="ghost" size="sm" type="button" />
+                      }
+                    >
+                      Cancel
+                    </DialogClose>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={changingPwd}
+                      className="btn-gradient text-white border-0 font-semibold h-9 px-5"
+                    >
+                      {changingPwd && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      Update password
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </SectionCard>
 
@@ -357,8 +489,9 @@ export default function SettingsPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete your account, all your organizations where
-                    you are the sole owner, and all associated data. This cannot be undone.
+                    This will permanently delete your account, all your
+                    organizations where you are the sole owner, and all
+                    associated data. This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
