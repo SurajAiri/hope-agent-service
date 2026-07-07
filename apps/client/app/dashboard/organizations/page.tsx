@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -28,15 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Trash2, Building2, Loader2, Check } from "lucide-react";
+import { Plus, Trash2, Building2, Loader2, Check, Users } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -44,6 +34,24 @@ interface Organization {
   slug: string;
   role?: string;
 }
+
+const ORG_GRADIENTS = [
+  "linear-gradient(135deg, oklch(0.55 0.22 268), oklch(0.60 0.18 290))",
+  "linear-gradient(135deg, oklch(0.50 0.20 295), oklch(0.55 0.16 268))",
+  "linear-gradient(135deg, oklch(0.50 0.18 200), oklch(0.55 0.20 230))",
+  "linear-gradient(135deg, oklch(0.50 0.16 150), oklch(0.55 0.14 180))",
+  "linear-gradient(135deg, oklch(0.55 0.18 50),  oklch(0.55 0.16 80))",
+];
+
+function orgGradient(name: string) {
+  return ORG_GRADIENTS[(name.charCodeAt(0) ?? 0) % ORG_GRADIENTS.length];
+}
+
+const ROLE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  owner:  { bg: "oklch(0.70 0.16 75 / 12%)",  text: "oklch(0.82 0.14 75)",  border: "oklch(0.70 0.16 75 / 25%)" },
+  admin:  { bg: "oklch(0.60 0.20 268 / 12%)", text: "oklch(0.78 0.18 268)", border: "oklch(0.60 0.20 268 / 25%)" },
+  member: { bg: "oklch(0.50 0.04 268 / 12%)", text: "oklch(0.68 0.04 268)", border: "oklch(0.50 0.04 268 / 20%)" },
+};
 
 export default function OrganizationsPage() {
   const { organizations, selectedOrgId, setSelectedOrgId, fetchOrganizations } =
@@ -87,7 +95,6 @@ export default function OrganizationsPage() {
     }
   };
 
-  // Auto-generate slug from name
   const handleNameChange = (name: string) => {
     setForm({
       name,
@@ -96,22 +103,38 @@ export default function OrganizationsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Organizations</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">Organizations</h1>
+            {organizations.length > 0 && (
+              <span
+                className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold"
+                style={{
+                  background: "oklch(0.65 0.22 268 / 15%)",
+                  color: "oklch(0.80 0.18 268)",
+                  border: "1px solid oklch(0.65 0.22 268 / 25%)",
+                }}
+              >
+                {organizations.length}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-white/45 mt-1">
             Manage the organizations you belong to.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New organization
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger
+            render={
+              <Button size="sm" className="gap-2 btn-gradient text-white border-0 font-semibold h-9">
+                <Plus className="h-4 w-4" />
+                New organization
+              </Button>
+            }
+          />
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create organization</DialogTitle>
@@ -121,7 +144,9 @@ export default function OrganizationsPage() {
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label htmlFor="orgName">Name</Label>
+                <Label htmlFor="orgName" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Name
+                </Label>
                 <Input
                   id="orgName"
                   placeholder="Acme Corp"
@@ -131,9 +156,17 @@ export default function OrganizationsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="orgSlug">Slug</Label>
-                <div className="flex items-center rounded-md border border-border overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                  <span className="px-3 py-2 text-xs text-muted-foreground bg-secondary border-r border-border">
+                <Label htmlFor="orgSlug" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Slug
+                </Label>
+                <div
+                  className="flex items-center rounded-lg border overflow-hidden focus-within:ring-1 focus-within:ring-primary/50"
+                  style={{ borderColor: "oklch(1 0 0 / 8%)" }}
+                >
+                  <span
+                    className="px-3 py-2.5 text-xs text-white/30 font-mono shrink-0"
+                    style={{ borderRight: "1px solid oklch(1 0 0 / 8%)", background: "oklch(1 0 0 / 3%)" }}
+                  >
                     /org/
                   </span>
                   <Input
@@ -141,13 +174,13 @@ export default function OrganizationsPage() {
                     placeholder="acme-corp"
                     value={form.slug}
                     onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                    className="border-0 rounded-none focus-visible:ring-0"
+                    className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
                     required
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={creating || !form.name || !form.slug}>
+                <Button type="submit" disabled={creating || !form.name || !form.slug} className="btn-gradient text-white border-0 font-semibold">
                   {creating && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create
                 </Button>
@@ -157,81 +190,114 @@ export default function OrganizationsPage() {
         </Dialog>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-secondary/40 hover:bg-secondary/40">
-              <TableHead className="text-xs">Name</TableHead>
-              <TableHead className="text-xs">Slug</TableHead>
-              <TableHead className="text-xs">Your role</TableHead>
-              <TableHead className="w-20 text-xs">Active</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {organizations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Building2 className="h-8 w-8 opacity-30" />
-                    <p className="text-sm">No organizations yet</p>
+      {/* Org cards grid */}
+      {organizations.length === 0 ? (
+        <div
+          className="flex flex-col items-center gap-3 py-20 rounded-2xl"
+          style={{ background: "oklch(1 0 0 / 2%)", border: "1px solid oklch(1 0 0 / 7%)" }}
+        >
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ background: "oklch(1 0 0 / 4%)" }}
+          >
+            <Building2 className="h-7 w-7 text-white/25" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-white/50">No organizations yet</p>
+            <p className="text-xs text-white/30 mt-1">Create your first organization to get started.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {organizations.map((org) => {
+            const isActive = org.id === selectedOrgId;
+            const role = org.role ?? "member";
+            const roleStyle = ROLE_STYLES[role] ?? ROLE_STYLES.member;
+
+            return (
+              <div
+                key={org.id}
+                className="group relative flex flex-col gap-4 rounded-2xl p-5 transition-all"
+                style={{
+                  background: isActive
+                    ? "oklch(0.65 0.22 268 / 6%)"
+                    : "oklch(1 0 0 / 3%)",
+                  border: isActive
+                    ? "1px solid oklch(0.65 0.22 268 / 30%)"
+                    : "1px solid oklch(1 0 0 / 8%)",
+                  boxShadow: isActive
+                    ? "0 0 0 1px oklch(0.65 0.22 268 / 15%), inset 0 1px 0 oklch(1 0 0 / 4%)"
+                    : "inset 0 1px 0 oklch(1 0 0 / 4%)",
+                }}
+              >
+                {/* Active indicator */}
+                {isActive && (
+                  <div
+                    className="absolute top-4 right-4 flex items-center gap-1"
+                  >
+                    <span className="status-dot status-dot-active" />
+                    <span className="text-[10px] font-bold text-emerald-400">Active</span>
                   </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              organizations.map((org) => (
-                <TableRow
-                  key={org.id}
-                  className={org.id === selectedOrgId ? "bg-primary/5" : ""}
-                >
-                  <TableCell className="font-medium text-sm">{org.name}</TableCell>
-                  <TableCell>
-                    <code className="text-xs font-mono text-muted-foreground">
-                      {org.slug}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-[10px] capitalize">
-                      {org.role ?? "member"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {org.id === selectedOrgId && (
-                      <div className="flex items-center gap-1 text-xs text-primary">
-                        <Check className="h-3.5 w-3.5" />
-                        Active
-                      </div>
-                    )}
-                    {org.id !== selectedOrgId && (
+                )}
+
+                {/* Org identity */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
+                    style={{
+                      background: orgGradient(org.name),
+                      boxShadow: "0 4px 12px oklch(0 0 0 / 30%)",
+                    }}
+                  >
+                    {org.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate">{org.name}</p>
+                    <code className="text-xs text-white/35 font-mono">{org.slug}</code>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide border"
+                    style={{
+                      background: roleStyle.bg,
+                      color: roleStyle.text,
+                      borderColor: roleStyle.border,
+                    }}
+                  >
+                    {role}
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    {!isActive && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-xs px-2 text-muted-foreground"
+                        className="h-7 text-xs px-3 text-white/40 hover:text-white hover:bg-white/[0.06]"
                         onClick={() => setSelectedOrgId(org.id)}
                       >
                         Switch
                       </Button>
                     )}
-                  </TableCell>
-                  <TableCell>
                     {org.role === "owner" && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-7 w-7 text-white/25 hover:text-red-400 hover:bg-red-400/10"
                         onClick={() => setDeleteTarget(org)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

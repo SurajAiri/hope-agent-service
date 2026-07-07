@@ -2,7 +2,7 @@ import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
-import { Button } from "./Button"
+import { Button } from "@/components/ui/button"
 
 interface ModalProps {
   isOpen: boolean

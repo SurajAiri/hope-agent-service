@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
-        <TooltipProvider delayDuration={300}>
+        <TooltipProvider>
           {children}
           <Toaster
             position="bottom-right"

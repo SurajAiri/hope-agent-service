@@ -7,7 +7,6 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -27,14 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -51,7 +42,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserPlus, MoreHorizontal, Loader2, Users } from "lucide-react";
+import { UserPlus, MoreHorizontal, Loader2, Users, Mail } from "lucide-react";
 
 type Role = "owner" | "admin" | "member";
 
@@ -60,11 +51,23 @@ interface Member {
   membership: { id: string; role: Role; status: string };
 }
 
-const ROLE_COLORS: Record<Role, string> = {
-  owner:  "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  admin:  "text-blue-400  bg-blue-400/10  border-blue-400/20",
-  member: "text-zinc-400  bg-zinc-400/10  border-zinc-400/20",
+const ROLE_STYLES: Record<Role, { bg: string; text: string; border: string; label: string }> = {
+  owner:  { bg: "oklch(0.70 0.16 75 / 12%)",  text: "oklch(0.82 0.14 75)",  border: "oklch(0.70 0.16 75 / 25%)",  label: "Owner"  },
+  admin:  { bg: "oklch(0.60 0.20 268 / 12%)", text: "oklch(0.78 0.18 268)", border: "oklch(0.60 0.20 268 / 25%)", label: "Admin"  },
+  member: { bg: "oklch(0.50 0.04 268 / 12%)", text: "oklch(0.68 0.04 268)", border: "oklch(0.50 0.04 268 / 20%)", label: "Member" },
 };
+
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, oklch(0.55 0.22 268), oklch(0.60 0.18 290))",
+  "linear-gradient(135deg, oklch(0.50 0.20 295), oklch(0.55 0.16 268))",
+  "linear-gradient(135deg, oklch(0.50 0.18 200), oklch(0.55 0.20 230))",
+  "linear-gradient(135deg, oklch(0.50 0.16 150), oklch(0.55 0.14 180))",
+  "linear-gradient(135deg, oklch(0.55 0.18 50),  oklch(0.55 0.16 80))",
+];
+
+function avatarGradient(name: string) {
+  return AVATAR_GRADIENTS[(name.charCodeAt(0) ?? 0) % AVATAR_GRADIENTS.length];
+}
 
 export default function MembersPage() {
   const { selectedOrgId, user: currentUser, organizations } = useAppStore();
@@ -150,23 +153,42 @@ export default function MembersPage() {
     `${m.user.firstName?.charAt(0) ?? ""}${m.user.lastName?.charAt(0) ?? ""}`.toUpperCase();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">Members</h1>
+            {!loading && members.length > 0 && (
+              <span
+                className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold"
+                style={{
+                  background: "oklch(0.65 0.22 268 / 15%)",
+                  color: "oklch(0.80 0.18 268)",
+                  border: "1px solid oklch(0.65 0.22 268 / 25%)",
+                }}
+              >
+                {members.length}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-white/45 mt-1">
             Manage who has access to this organization.
           </p>
         </div>
         {canManage && (
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <UserPlus className="h-4 w-4" />
-                Invite member
-              </Button>
-            </DialogTrigger>
+            <DialogTrigger
+              render={
+                <Button
+                  size="sm"
+                  className="gap-2 btn-gradient text-white border-0 font-semibold h-9"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Invite member
+                </Button>
+              }
+            />
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Invite member</DialogTitle>
@@ -176,18 +198,26 @@ export default function MembersPage() {
               </DialogHeader>
               <form onSubmit={handleInvite} className="space-y-4 py-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="inviteEmail">Email address</Label>
-                  <Input
-                    id="inviteEmail"
-                    type="email"
-                    placeholder="colleague@company.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="inviteEmail" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 pointer-events-none" />
+                    <Input
+                      id="inviteEmail"
+                      type="email"
+                      placeholder="colleague@company.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="inviteRole">Role</Label>
+                  <Label htmlFor="inviteRole" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                    Role
+                  </Label>
                   <Select
                     value={inviteRole}
                     onValueChange={(v) => setInviteRole(v as "admin" | "member")}
@@ -196,13 +226,13 @@ export default function MembersPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin — can manage members & tokens</SelectItem>
+                      <SelectItem value="admin">Admin — can manage members &amp; tokens</SelectItem>
                       <SelectItem value="member">Member — read access only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={inviting || !inviteEmail.trim()}>
+                  <Button type="submit" disabled={inviting || !inviteEmail.trim()} className="btn-gradient text-white border-0 font-semibold">
                     {inviting && <Loader2 className="h-4 w-4 animate-spin" />}
                     Send invitation
                   </Button>
@@ -214,112 +244,152 @@ export default function MembersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-secondary/40 hover:bg-secondary/40">
-              <TableHead className="text-xs">Member</TableHead>
-              <TableHead className="text-xs">Email</TableHead>
-              <TableHead className="text-xs">Role</TableHead>
-              <TableHead className="text-xs">Status</TableHead>
-              {canManage && <TableHead className="w-10" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-7 w-7 rounded-full" />
-                      <Skeleton className="h-4 w-28" />
-                    </div>
-                  </TableCell>
-                  <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  {canManage && <TableCell />}
-                </TableRow>
-              ))
-            ) : members.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={canManage ? 5 : 4} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Users className="h-8 w-8 opacity-30" />
-                    <p className="text-sm">No members yet</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              members.map((m) => {
-                const isCurrentUser = m.user.id === currentUser?.id;
-                return (
-                  <TableRow key={m.membership.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="h-7 w-7 border border-border">
-                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
-                            {initials(m)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">
-                          {fullName(m)}
-                          {isCurrentUser && (
-                            <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
-                          )}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {m.user.email}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium capitalize ${ROLE_COLORS[m.membership.role]}`}>
-                        {m.membership.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={m.membership.status === "active" ? "default" : "secondary"}
-                        className="text-[10px] capitalize"
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: "oklch(1 0 0 / 3%)",
+          border: "1px solid oklch(1 0 0 / 8%)",
+        }}
+      >
+        {/* Table header */}
+        <div
+          className="grid gap-4 px-5 py-3 border-b border-white/[0.05]"
+          style={{
+            gridTemplateColumns: canManage
+              ? "minmax(160px,1fr) minmax(160px,1fr) 90px 80px 44px"
+              : "minmax(160px,1fr) minmax(160px,1fr) 90px 80px",
+            background: "oklch(1 0 0 / 2%)",
+          }}
+        >
+          {["Member", "Email", "Role", "Status", ""].map((h, i) => (
+            <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+              {h}
+            </span>
+          ))}
+        </div>
+
+        {/* Rows */}
+        <div className="divide-y divide-white/[0.04]">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-36" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
+            ))
+          ) : members.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-white/30">
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{ background: "oklch(1 0 0 / 4%)" }}
+              >
+                <Users className="h-6 w-6" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-white/50">No members yet</p>
+                <p className="text-xs mt-0.5">Invite your team to get started.</p>
+              </div>
+            </div>
+          ) : (
+            members.map((m) => {
+              const isCurrentUser = m.user.id === currentUser?.id;
+              const roleStyle = ROLE_STYLES[m.membership.role];
+              const isActive = m.membership.status === "active";
+
+              return (
+                <div
+                  key={m.membership.id}
+                  className="grid items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
+                  style={{
+                    gridTemplateColumns: canManage
+                      ? "minmax(160px,1fr) minmax(160px,1fr) 90px 80px 44px"
+                      : "minmax(160px,1fr) minmax(160px,1fr) 90px 80px",
+                  }}
+                >
+                  {/* Name + avatar */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarFallback
+                        className="text-[11px] font-bold text-white"
+                        style={{ background: avatarGradient(m.user.firstName ?? "A") }}
                       >
-                        {m.membership.status}
-                      </Badge>
-                    </TableCell>
-                    {canManage && (
-                      <TableCell>
-                        {!isCurrentUser && m.membership.role !== "owner" && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                        {initials(m)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {fullName(m)}
+                        {isCurrentUser && (
+                          <span className="ml-1.5 text-[10px] text-white/30 font-normal">(you)</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <p className="text-xs text-white/45 truncate">{m.user.email}</p>
+
+                  {/* Role */}
+                  <span
+                    className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide border"
+                    style={{
+                      background: roleStyle.bg,
+                      color: roleStyle.text,
+                      borderColor: roleStyle.border,
+                    }}
+                  >
+                    {roleStyle.label}
+                  </span>
+
+                  {/* Status */}
+                  <div className="flex items-center gap-1.5">
+                    <span className={`status-dot ${isActive ? "status-dot-active" : "status-dot-pending"}`} />
+                    <span className={`text-xs font-medium capitalize ${isActive ? "text-emerald-400" : "text-amber-400"}`}>
+                      {m.membership.status}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  {canManage && (
+                    <div className="flex justify-end">
+                      {!isCurrentUser && m.membership.role !== "owner" && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-white hover:bg-white/[0.06]">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-xs"
-                                onClick={() => handleRoleChange(m.user.id, m.membership.role === "admin" ? "member" : "admin")}
-                              >
-                                Change to {m.membership.role === "admin" ? "Member" : "Admin"}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-xs text-destructive focus:text-destructive"
-                                onClick={() => setRemoveTarget(m)}
-                              >
-                                Remove member
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-xs"
+                              onClick={() => handleRoleChange(m.user.id, m.membership.role === "admin" ? "member" : "admin")}
+                            >
+                              Change to {m.membership.role === "admin" ? "Member" : "Admin"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-xs text-destructive focus:text-destructive"
+                              onClick={() => setRemoveTarget(m)}
+                            >
+                              Remove member
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Remove confirmation */}
