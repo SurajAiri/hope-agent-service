@@ -16,6 +16,8 @@ import {
   BookOpen,
   Check,
   Sparkles,
+  Activity,
+  BarChart2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +37,8 @@ import {
 const NAV = [
   { icon: LayoutDashboard, label: "Overview",      href: "/dashboard" },
   { icon: Bot,             label: "Agents",         href: "/dashboard/agents" },
+  { icon: Activity,        label: "Traces",         href: "/dashboard/traces" },
+  { icon: BarChart2,       label: "Analytics",      href: "/dashboard/analytics" },
   { icon: KeyRound,        label: "API Tokens",     href: "/dashboard/tokens" },
   { icon: Users,           label: "Members",        href: "/dashboard/members" },
   { icon: Building2,       label: "Organizations",  href: "/dashboard/organizations" },
@@ -96,7 +100,7 @@ export function Sidebar() {
         </div>
         <div>
           <span className="font-bold text-sm tracking-tight gradient-text">
-            AgentOS
+            Hope
           </span>
           <p className="text-[10px] text-white/30 leading-none mt-0.5">Developer Platform</p>
         </div>

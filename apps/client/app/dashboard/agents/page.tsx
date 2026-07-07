@@ -470,7 +470,7 @@ export default function AgentsPage() {
             </div>
           </div>
 
-          {/* Curl example */}
+          {/* Curl example — developer endpoint */}
           {selectedAgent && (
             <div
               className="rounded-2xl overflow-hidden mt-4"
@@ -480,16 +480,38 @@ export default function AgentsPage() {
               }}
             >
               <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.05]">
-                <div className="flex items-center gap-2">
-                  <Terminal className="h-3.5 w-3.5 text-white/30" />
-                  <span className="text-xs font-semibold text-white/50">cURL equivalent</span>
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="h-3.5 w-3.5 text-white/30" />
+                    <span className="text-xs font-semibold text-white/50">Developer cURL</span>
+                    <span
+                      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                      style={{
+                        background: "oklch(0.65 0.22 268 / 15%)",
+                        color: "oklch(0.80 0.18 268)",
+                        border: "1px solid oklch(0.65 0.22 268 / 25%)",
+                      }}
+                    >
+                      X-Hope-Token
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/25 pl-5.5">
+                    Use your API token — no org ID in the URL.
+                  </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] gap-1.5 text-white/30 hover:text-white px-2"
                   onClick={() => {
-                    const curl = `curl -X POST \\\n  '${API_BASE}/organizations/${selectedOrgId}/agents/${runMode === "sync" ? "run/sync" : "run"}' \\\n  -H 'Authorization: Bearer <your-jwt>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n  "agent_id": "${selectedAgent}",\n  "messages": [{ "role": "user", "content": "${message.replace(/'/g, "\\'").slice(0, 60)}${message.length > 60 ? "…" : ""}" }]\n}'`;
+                    const curl = `curl -X POST \\
+  '${API_BASE.replace("/api/v1", "")}/api/v1/run/${runMode === "sync" ? "sync" : ""}' \\
+  -H 'X-Hope-Token: <your-api-token>' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+  "agent_id": "${selectedAgent}",
+  "messages": [{ "role": "user", "content": "${message.replace(/'/g, "\\'").slice(0, 60)}${message.length > 60 ? "…" : ""}" }]
+}'`;
                     navigator.clipboard.writeText(curl);
                     toast.success("Copied cURL to clipboard");
                   }}
@@ -501,8 +523,8 @@ export default function AgentsPage() {
               <div className="p-4 overflow-x-auto">
                 <pre className="text-[11px] font-mono text-white/50 whitespace-pre">
 {`curl -X POST \\
-  '${API_BASE}/organizations/${selectedOrgId}/agents/${runMode === "sync" ? "run/sync" : "run"}' \\
-  -H 'Authorization: Bearer <your-jwt>' \\
+  '${API_BASE.replace("/api/v1", "")}/api/v1/run${runMode === "sync" ? "/sync" : ""}' \\
+  -H 'X-Hope-Token: <your-api-token>' \\
   -H 'Content-Type: application/json' \\
   -d '{
   "agent_id": "${selectedAgent}",

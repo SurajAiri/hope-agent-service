@@ -19,6 +19,8 @@ import {
   Loader2,
   Zap,
   Code2,
+  Activity,
+  BarChart2,
 } from "lucide-react";
 
 interface Invitation {
@@ -60,6 +62,22 @@ const stats: QuickStat[] = [
     gradient: "from-cyan-600 to-emerald-600",
     glow: "oklch(0.55 0.16 185 / 30%)",
   },
+  {
+    label: "Traces",
+    href: "/dashboard/traces",
+    icon: Activity,
+    description: "Inspect every agent run",
+    gradient: "from-amber-600 to-orange-600",
+    glow: "oklch(0.62 0.18 55 / 30%)",
+  },
+  {
+    label: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart2,
+    description: "Usage stats and token trends",
+    gradient: "from-rose-600 to-pink-600",
+    glow: "oklch(0.55 0.22 10 / 30%)",
+  },
 ];
 
 const GETTING_STARTED = [
@@ -80,7 +98,7 @@ const GETTING_STARTED = [
   {
     step: "03",
     title: "Fire your first run",
-    desc: "POST /organizations/{orgId}/agents/run/sync with your agent_id and messages.",
+    desc: "POST /api/v1/run/sync  with X-Hope-Token header and { agent_id, messages }.",
     href: "/dashboard/agents",
     mono: true,
     Icon: Zap,
@@ -245,7 +263,7 @@ export default function DashboardPage() {
       )}
 
       {/* Quick stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <Link key={stat.href} href={stat.href} className="group block">
             <div
@@ -309,7 +327,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold">Getting started</h2>
-              <p className="text-xs text-white/40 mt-0.5">Follow these steps to integrate AgentOS into your project.</p>
+              <p className="text-xs text-white/40 mt-0.5">Follow these steps to integrate Hope into your project.</p>
             </div>
           </div>
         </div>

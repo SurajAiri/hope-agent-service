@@ -4,9 +4,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Agent Service API",
+      title: "Hope Platform API",
       version: "1.0.0",
-      description: "API documentation for Agent Service",
+      description: "API documentation for Hope — the developer platform for building and running AI agents.",
     },
     servers: [
       {
@@ -20,20 +20,29 @@ const options: swaggerJsdoc.Options = {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
+          description: "JWT issued by POST /api/v1/auth/login — used by the dashboard UI.",
         },
         apiKeyAuth: {
           type: "apiKey",
           in: "header",
           name: "X-API-Key",
-          description: "Org API key (for programmatic access to agent routes)",
+          description: "Internal secret shared between Node.js and the GenAI service. Not for external use.",
+        },
+        hopeToken: {
+          type: "apiKey",
+          in: "header",
+          name: "X-Hope-Token",
+          description: "Your org API token — the primary auth method for developer/programmatic access to /api/v1/run/*.",
         },
       },
     },
   },
-  // Include both access feature routes and the new agents feature routes
   apis: [
     "./src/features/access/**/*.routes.ts",
     "./src/features/agents/*.routes.ts",
+    "./src/features/run/*.routes.ts",
+    "./src/features/traces/*.routes.ts",
+    "./src/features/analytics/*.routes.ts",
   ],
 };
 

@@ -6,8 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "AgentOS", template: "%s — AgentOS" },
-  description: "Developer platform for building and running AI agents at scale.",
+  title: { default: "Hope", template: "%s — Hope" },
+  description: "Hope — the developer platform for building and running AI agents at scale.",
 };
 
 export default function RootLayout({

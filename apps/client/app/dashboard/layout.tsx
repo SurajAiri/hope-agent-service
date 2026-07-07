@@ -56,7 +56,7 @@ export default function DashboardLayout({
           <Bot className="h-6 w-6 text-white" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-semibold gradient-text">AgentOS</p>
+          <p className="text-sm font-semibold gradient-text">Hope</p>
           <p className="text-xs text-white/35 mt-0.5">Loading workspace…</p>
         </div>
         {/* Spinner ring */}
