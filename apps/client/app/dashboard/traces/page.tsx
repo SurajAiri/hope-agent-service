@@ -38,6 +38,7 @@ interface RunTrace {
   id: string;
   agentId: string;
   sessionId: string | null;
+  threadId: string | null;
   runMode: "async" | "sync" | "stream";
   status: "queued" | "running" | "done" | "failed" | "hitl";
   input: any;
@@ -157,6 +158,9 @@ function TraceRow({ trace }: { trace: RunTrace }) {
             {trace.sessionId && (
               <span>Session: <span className="text-white/60">{trace.sessionId}</span></span>
             )}
+            {trace.threadId && (
+              <span>Thread: <span className="text-white/60">{trace.threadId}</span></span>
+            )}
             <span>
               Status:{" "}
               <span className={meta.color + " font-semibold capitalize"}>{trace.status}</span>
@@ -239,8 +243,15 @@ export default function TracesPage() {
   const [offset, setOffset] = useState(0);
   const LIMIT = 25;
 
-  // Filters
+  // Input fields
+  const [agentInput, setAgentInput] = useState("");
+  const [sessionInput, setSessionInput] = useState("");
+  const [threadInput, setThreadInput] = useState("");
+
+  // Active filters
   const [agentFilter, setAgentFilter] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("");
+  const [threadFilter, setThreadFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchTraces = useCallback(async () => {
@@ -252,6 +263,8 @@ export default function TracesPage() {
         offset: String(offset),
       });
       if (agentFilter.trim()) params.set("agentId", agentFilter.trim());
+      if (sessionFilter.trim()) params.set("sessionId", sessionFilter.trim());
+      if (threadFilter.trim()) params.set("threadId", threadFilter.trim());
       if (statusFilter !== "all") params.set("status", statusFilter);
 
       const res = await api.get(
@@ -264,14 +277,16 @@ export default function TracesPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedOrgId, offset, agentFilter, statusFilter]);
+  }, [selectedOrgId, offset, agentFilter, sessionFilter, threadFilter, statusFilter]);
 
   useEffect(() => { fetchTraces(); }, [fetchTraces]);
 
-  // Reset offset when filters change
+  // Apply filters
   const applyFilters = () => {
+    setAgentFilter(agentInput);
+    setSessionFilter(sessionInput);
+    setThreadFilter(threadInput);
     setOffset(0);
-    fetchTraces();
   };
 
   return (
@@ -318,8 +333,28 @@ export default function TracesPage() {
           <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
           <Input
             placeholder="Filter by agent ID…"
-            value={agentFilter}
-            onChange={(e) => setAgentFilter(e.target.value)}
+            value={agentInput}
+            onChange={(e) => setAgentInput(e.target.value)}
+            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+          <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
+          <Input
+            placeholder="Filter by session ID…"
+            value={sessionInput}
+            onChange={(e) => setSessionInput(e.target.value)}
+            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+          <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
+          <Input
+            placeholder="Filter by thread ID…"
+            value={threadInput}
+            onChange={(e) => setThreadInput(e.target.value)}
             className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
             onKeyDown={(e) => e.key === "Enter" && applyFilters()}
           />

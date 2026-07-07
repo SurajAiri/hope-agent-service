@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { useAppStore } from "@/lib/store";
-import { Bot } from "lucide-react";
+import { Bot, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 export default function DashboardLayout({
   children,
@@ -71,10 +72,39 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+    <div className="flex h-screen flex-col md:flex-row overflow-hidden">
+      {/* Mobile Header */}
+      <div className="flex items-center justify-between h-14 px-4 border-b border-white/[0.05] md:hidden bg-background shrink-0">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
+              boxShadow: "0 2px 8px oklch(0.60 0.22 268 / 40%)",
+            }}
+          >
+            <Bot className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-bold text-sm tracking-tight gradient-text">
+            Hope
+          </span>
+        </div>
+        <Sheet>
+          <SheetTrigger render={<button className="p-2 -mr-2 text-white/70 hover:text-white" />}>
+            <Menu className="h-5 w-5" />
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[240px] p-0 border-r border-white/[0.05] bg-[var(--sidebar)]">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <Sidebar />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="hidden md:flex">
+        <Sidebar />
+      </div>
       <main className="flex-1 overflow-y-auto relative z-10">
-        <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
+        <div className="mx-auto max-w-5xl px-4 md:px-8 py-6 md:py-8">{children}</div>
       </main>
     </div>
   );

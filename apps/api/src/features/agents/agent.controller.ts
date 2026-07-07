@@ -43,6 +43,7 @@ export class AgentController {
         orgId,
         agentId: req.body.agent_id,
         sessionId: data?.session_id ?? null,
+        threadId: req.body.thread_id ?? null,
         runMode: "async",
         status: "queued",
         input: req.body.messages,
@@ -85,6 +86,7 @@ export class AgentController {
           orgId,
           agentId: req.body.agent_id,
           sessionId: data?.session_id ?? null,
+          threadId: req.body.thread_id ?? null,
           runMode: "sync",
           status: runError ? "failed" : (data?.status ?? "done"),
           input: req.body.messages,
@@ -118,6 +120,7 @@ export class AgentController {
       .logRun({
         orgId,
         agentId: req.body.agent_id,
+        threadId: req.body.thread_id ?? null,
         runMode: "stream",
         status: "running",
         input: req.body.messages,

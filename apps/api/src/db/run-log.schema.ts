@@ -41,6 +41,9 @@ export const RunLogTable = pgTable(
     /** session_id assigned by the GenAI service. Nullable for sync runs that error before one is assigned. */
     sessionId: varchar("session_id", { length: 255 }),
 
+    /** thread_id associated with the run, if any. */
+    threadId: varchar("thread_id", { length: 255 }),
+
     runMode: runModeEnum("run_mode").notNull(),
 
     status: runStatusEnum("status").notNull(),
@@ -78,6 +81,8 @@ export const RunLogTable = pgTable(
     index("run_logs_org_created_idx").on(t.orgId, t.createdAt),
     // Session lookups (status polling links to traces)
     index("run_logs_session_id_idx").on(t.sessionId),
+    // Thread lookups
+    index("run_logs_thread_id_idx").on(t.threadId),
     // Filter / group by agent
     index("run_logs_agent_id_idx").on(t.agentId),
   ],

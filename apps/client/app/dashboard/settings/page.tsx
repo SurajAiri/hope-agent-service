@@ -110,7 +110,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.put("/users", {
+      const res = await api.patch("/users", {
         firstName: profile.firstName,
         lastName: profile.lastName,
       });
@@ -140,7 +140,7 @@ export default function SettingsPage() {
     }
     setChangingPwd(true);
     try {
-      await api.put("/users/password", {
+      await api.patch("/users/password", {
         currentPassword: pwd.current,
         newPassword: pwd.next,
       });

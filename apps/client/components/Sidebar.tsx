@@ -179,7 +179,7 @@ export function Sidebar() {
         <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-1 mb-2">
           Navigation
         </p>
-        {NAV.map((item) => {
+        {NAV.filter(item => !(item.label === "Members" && selectedOrg?.role === "member")).map((item) => {
           const isActive =
             item.href === "/dashboard"
               ? pathname === "/dashboard"

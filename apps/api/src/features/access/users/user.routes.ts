@@ -24,7 +24,7 @@ router.get("/", authMiddleware, userController.getMe);
 /**
  * @swagger
  * /api/v1/users:
- *   put:
+ *   patch:
  *     summary: Update current user profile
  *     tags: [Users]
  *     security:
@@ -47,7 +47,41 @@ router.get("/", authMiddleware, userController.getMe);
  *       401:
  *         description: Unauthorized
  */
-router.put("/", authMiddleware, userController.update);
+router.patch("/", authMiddleware, userController.update);
+
+/**
+ * @swagger
+ * /api/v1/users/password:
+ *   patch:
+ *     summary: Update current user password
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: User password updated successfully
+ *       400:
+ *         description: Invalid current password
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch("/password", authMiddleware, userController.updatePassword);
 
 /**
  * @swagger

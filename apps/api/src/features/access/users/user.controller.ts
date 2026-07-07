@@ -4,7 +4,7 @@ import { UserService } from "./user.service";
 import { ApiError } from "@/shared/utils/ApiError";
 import { ApiResponse } from "@/shared/utils/ApiResponse";
 import { asyncHandler } from "@/shared/utils/asyncHandler";
-import { createUserSchema, updateUserSchema } from "./user.schema";
+import { createUserSchema, updateUserSchema, updatePasswordSchema } from "./user.schema";
 
 const userService = new UserService();
 
@@ -39,6 +39,18 @@ export class UserController {
     const body = updateUserSchema.parse(req.body);
     const user = await userService.updateUser(userId, body);
     res.status(200).json(new ApiResponse(200, user, "User profile updated successfully"));
+  });
+
+  /**
+   * PATCH /api/v1/users/password
+   * Update the current authenticated user's password.
+   */
+  updatePassword = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id as string;
+    console.log(`[UserController] updatePassword called for userId: ${userId}`);
+    const body = updatePasswordSchema.parse(req.body);
+    await userService.updatePassword(userId, body);
+    res.status(200).json(new ApiResponse(200, null, "Password updated successfully"));
   });
 
   /**

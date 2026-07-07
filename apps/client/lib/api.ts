@@ -67,6 +67,15 @@ export const api = {
     return handleResponse(response)
   },
 
+  patch: async (endpoint: string, body?: any, customHeaders?: Record<string, string>) => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "PATCH",
+      headers: getHeaders(customHeaders),
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    return handleResponse(response)
+  },
+
   delete: async (endpoint: string, customHeaders?: Record<string, string>) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: "DELETE",

@@ -108,8 +108,8 @@ router.delete(
   membershipController.removeMember,
 );
 
-router.put(
-  "/:userId",
+router.patch(
+  "/:userId/role",
   requireOrganizationRole(["owner", "admin"]),
   membershipController.updateRole,
 );

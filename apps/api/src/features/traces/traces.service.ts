@@ -7,6 +7,8 @@ export type CreateRunLogInput = Omit<NewRunLog, "id" | "createdAt">;
 export interface ListRunsFilters {
   agentId?: string;
   status?: string;
+  sessionId?: string;
+  threadId?: string;
   from?: Date;
   to?: Date;
   limit?: number;
@@ -31,6 +33,8 @@ export class TracesService {
     const {
       agentId,
       status,
+      sessionId,
+      threadId,
       from,
       to,
       limit = 50,
@@ -41,6 +45,8 @@ export class TracesService {
 
     if (agentId) conditions.push(eq(RunLogTable.agentId, agentId));
     if (status) conditions.push(eq(RunLogTable.status, status as any));
+    if (sessionId) conditions.push(eq(RunLogTable.sessionId, sessionId));
+    if (threadId) conditions.push(eq(RunLogTable.threadId, threadId));
     if (from) conditions.push(gte(RunLogTable.createdAt, from));
     if (to) conditions.push(lte(RunLogTable.createdAt, to));
 

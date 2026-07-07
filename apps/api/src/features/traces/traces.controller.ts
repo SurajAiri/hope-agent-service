@@ -16,11 +16,13 @@ export class TracesController {
   listRuns = asyncHandler(async (req: Request, res: Response) => {
     const orgId = req.organizationId!;
 
-    const { agentId, status, from, to, limit, offset } = req.query as Record<string, string>;
+    const { agentId, status, sessionId, threadId, from, to, limit, offset } = req.query as Record<string, string>;
 
     const { runs, total } = await tracesService.listRuns(orgId, {
       agentId: agentId || undefined,
       status: status || undefined,
+      sessionId: sessionId || undefined,
+      threadId: threadId || undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       limit: limit ? Math.min(parseInt(limit, 10), 200) : 50,

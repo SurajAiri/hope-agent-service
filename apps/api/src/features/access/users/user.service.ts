@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { eq, and } from "drizzle-orm";
 
 import { UserRepository } from "./user.repository";
-import { CreateUserInput, UpdateUserInput } from "./user.schema";
+import { CreateUserInput, UpdateUserInput, UpdatePasswordInput } from "./user.schema";
 import { ApiError } from "@/shared/utils/ApiError";
 import { db } from "@/db";
 import { MembershipTable } from "@/db/membership.schema";
@@ -36,6 +36,22 @@ export class UserService {
     }
 
     return await this.userRepository.update(id, input);
+  }
+
+  async updatePassword(id: string, input: UpdatePasswordInput) {
+    const user = await this.userRepository.findById(id);
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const isValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new ApiError(400, "Invalid current password");
+    }
+
+    const passwordHash = await bcrypt.hash(input.newPassword, 12);
+    return await this.userRepository.update(id, { passwordHash } as any);
   }
 
   async getUser(id: string) {

@@ -92,7 +92,7 @@ router.get(
 /**
  * @swagger
  * /api/v1/organizations/{organizationId}:
- *   put:
+ *   patch:
  *     summary: Update organization
  *     tags: [Organizations]
  *     security:
@@ -120,7 +120,7 @@ router.get(
  *       404:
  *         description: Organization not found
  */
-router.put(
+router.patch(
   "/:organizationId",
   authMiddleware,
   requireOrganizationRole(["owner", "admin"]),

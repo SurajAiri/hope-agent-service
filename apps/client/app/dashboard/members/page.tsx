@@ -138,13 +138,32 @@ export default function MembersPage() {
   const handleRoleChange = async (userId: string, role: "admin" | "member") => {
     if (!selectedOrgId) return;
     try {
-      await api.put(`/organizations/${selectedOrgId}/members/${userId}/role`, { role });
+      await api.patch(
+        `/organizations/${selectedOrgId}/members/${userId}/role`,
+        { role },
+      );
       toast.success("Role updated");
       await fetchMembers();
     } catch (err: any) {
       toast.error(err.message || "Failed to update role");
     }
   };
+
+  if (!canManage) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04]">
+          <Users className="h-6 w-6 text-white/30" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold">Access Denied</h2>
+          <p className="text-sm text-white/50 mt-1">
+            You must be an admin or owner to view and manage members.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const fullName = (m: Member) =>
     `${m.user.firstName} ${m.user.lastName}`.trim();
