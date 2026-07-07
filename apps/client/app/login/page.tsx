@@ -36,15 +36,14 @@ export default function LoginPage() {
       <div className="w-full max-w-[400px]">
         {/* Logo + headline */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-2xl"
+          <img
+            src="/icons/logo.png"
+            alt="AgentOS Logo"
+            className="h-14 w-14 rounded-2xl"
             style={{
-              background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
               boxShadow: "0 4px 24px oklch(0.60 0.22 268 / 45%)",
             }}
-          >
-            <Bot className="h-7 w-7 text-white" />
-          </div>
+          />
           <div className="text-center">
             <h1 className="text-2xl font-bold gradient-text tracking-tight">AgentOS</h1>
             <p className="text-sm text-white/40 mt-1">Sign in to your workspace</p>

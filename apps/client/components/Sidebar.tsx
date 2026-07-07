@@ -96,15 +96,14 @@ export function Sidebar() {
     >
       {/* Brand */}
       <div className="flex h-14 items-center gap-3 px-4 border-b border-white/[0.05]">
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+        <img
+          src="/icons/logo.png"
+          alt="Hope Logo"
+          className="h-8 w-8 rounded-lg shrink-0"
           style={{
-            background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
             boxShadow: "0 2px 8px oklch(0.60 0.22 268 / 40%)",
           }}
-        >
-          <Bot className="h-4 w-4 text-white" />
-        </div>
+        />
         <div>
           <span className="font-bold text-sm tracking-tight gradient-text">
             Hope

@@ -46,16 +46,15 @@ export default function DashboardLayout({
   if (isInitializing) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 relative z-10">
-        <div
-          className="flex h-12 w-12 items-center justify-center rounded-xl"
+        <img
+          src="/icons/logo.png"
+          alt="Logo"
+          className="h-12 w-12 rounded-xl"
           style={{
-            background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
             boxShadow: "0 4px 20px oklch(0.60 0.22 268 / 40%)",
             animation: "pulse 2s ease infinite",
           }}
-        >
-          <Bot className="h-6 w-6 text-white" />
-        </div>
+        />
         <div className="text-center">
           <p className="text-sm font-semibold gradient-text">Hope</p>
           <p className="text-xs text-white/35 mt-0.5">Loading workspace…</p>
@@ -76,15 +75,14 @@ export default function DashboardLayout({
       {/* Mobile Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-white/[0.05] md:hidden bg-background shrink-0">
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+          <img
+            src="/icons/logo.png"
+            alt="Logo"
+            className="h-8 w-8 rounded-lg shrink-0"
             style={{
-              background: "linear-gradient(135deg, oklch(0.60 0.22 268), oklch(0.65 0.20 290))",
               boxShadow: "0 2px 8px oklch(0.60 0.22 268 / 40%)",
             }}
-          >
-            <Bot className="h-4 w-4 text-white" />
-          </div>
+          />
           <span className="font-bold text-sm tracking-tight gradient-text">
             Hope
           </span>
