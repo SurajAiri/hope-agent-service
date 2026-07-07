@@ -62,7 +62,7 @@ export default function RegisterPage() {
           />
           <div className="text-center">
             <h1 className="text-2xl font-bold gradient-text tracking-tight">AgentOS</h1>
-            <p className="text-sm text-white/40 mt-1">Create your account</p>
+            <p className="text-sm text-white/60 mt-1">Create your account</p>
           </div>
         </div>
 
@@ -84,14 +84,14 @@ export default function RegisterPage() {
                   First name
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
                   <Input
                     id="firstName"
                     placeholder="John"
                     required
                     value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                    className="pl-9 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                    className="pl-9 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                   />
                 </div>
               </div>
@@ -105,7 +105,7 @@ export default function RegisterPage() {
                   required
                   value={form.lastName}
                   onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                  className="h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -116,7 +116,7 @@ export default function RegisterPage() {
                 Email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
                 <Input
                   id="email"
                   type="email"
@@ -125,7 +125,7 @@ export default function RegisterPage() {
                   required
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function RegisterPage() {
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none z-10" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none z-10" />
                 <PasswordInput
                   id="password"
                   placeholder="Minimum 6 characters"
@@ -144,7 +144,7 @@ export default function RegisterPage() {
                   minLength={6}
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function RegisterPage() {
                 Confirm Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none z-10" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none z-10" />
                 <PasswordInput
                   id="confirmPassword"
                   placeholder="Confirm your password"
@@ -164,7 +164,7 @@ export default function RegisterPage() {
                   minLength={6}
                   value={form.confirmPassword}
                   onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -187,7 +187,7 @@ export default function RegisterPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-white/35 mt-6">
+        <p className="text-center text-sm text-white/50 mt-6">
           Already have an account?{" "}
           <Link
             href="/login"

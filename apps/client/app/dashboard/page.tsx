@@ -167,7 +167,7 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2 mt-1">
-          <p className="text-sm text-white/45">
+          <p className="text-sm text-white/60">
             {org ? (
               <>
                 <span className="text-white/70 font-medium">{org.name}</span>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                   </span>
                   <div>
                     <p className="text-sm font-semibold">{invite.organization.name}</p>
-                    <p className="text-xs text-white/40 capitalize">
+                    <p className="text-xs text-white/60 capitalize">
                       Invited as {invite.membership.role}
                     </p>
                   </div>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-white/40 hover:text-red-400 hover:bg-red-400/10"
+                    className="h-7 w-7 p-0 text-white/60 hover:text-red-400 hover:bg-red-400/10"
                     disabled={respondingId === invite.organization.id}
                     onClick={() => handleReject(invite.organization.id)}
                   >
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                 <stat.icon className="h-5 w-5 text-white" />
               </div>
 
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">
                 {stat.label}
               </p>
               <p className="text-sm text-white/60">{stat.description}</p>
@@ -327,7 +327,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold">Getting started</h2>
-              <p className="text-xs text-white/40 mt-0.5">Follow these steps to integrate Hope into your project.</p>
+              <p className="text-xs text-white/60 mt-0.5">Follow these steps to integrate Hope into your project.</p>
             </div>
           </div>
         </div>
@@ -360,15 +360,15 @@ export default function DashboardPage() {
               {/* Content */}
               <div className="flex-1 min-w-0 pb-1">
                 <div className="flex items-center gap-2">
-                  <item.Icon className="h-3.5 w-3.5 text-white/30" />
+                  <item.Icon className="h-3.5 w-3.5 text-white/50" />
                   <p className="text-sm font-semibold">{item.title}</p>
                 </div>
-                <p className={`text-xs text-white/40 mt-1 ${item.mono ? "font-mono" : ""}`}>
+                <p className={`text-xs text-white/60 mt-1 ${item.mono ? "font-mono" : ""}`}>
                   {item.desc}
                 </p>
               </div>
 
-              <ArrowRight className="h-4 w-4 text-white/20 shrink-0 mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="h-4 w-4 text-white/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
             </Link>
           ))}
         </div>

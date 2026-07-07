@@ -93,7 +93,7 @@ function SectionHeader({
         >
           {title}
         </p>
-        <p className="text-xs text-white/40 mt-0.5">{description}</p>
+        <p className="text-xs text-white/60 mt-0.5">{description}</p>
       </div>
     </div>
   );
@@ -194,7 +194,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-white/45 mt-1">
+        <p className="text-sm text-white/60 mt-1">
           Manage your account preferences.
         </p>
       </div>
@@ -232,7 +232,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <p className="text-lg font-bold">{user?.name || "User"}</p>
-              <p className="text-sm text-white/45">{user?.email}</p>
+              <p className="text-sm text-white/60">{user?.email}</p>
             </div>
           </div>
 
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                     <div className="space-y-1.5">
                       <Label
                         htmlFor="firstName"
-                        className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                        className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                       >
                         First name
                       </Label>
@@ -279,7 +279,7 @@ export default function SettingsPage() {
                     <div className="space-y-1.5">
                       <Label
                         htmlFor="lastName"
-                        className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                        className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                       >
                         Last name
                       </Label>
@@ -299,7 +299,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="email"
-                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                     >
                       Email
                     </Label>
@@ -308,9 +308,9 @@ export default function SettingsPage() {
                       type="email"
                       value={profile.email}
                       disabled
-                      className="h-10 bg-white/[0.02] border-white/[0.05] text-white/30 cursor-not-allowed"
+                      className="h-10 bg-white/[0.02] border-white/[0.05] text-white/50 cursor-not-allowed"
                     />
-                    <p className="text-[11px] text-white/25">
+                    <p className="text-[11px] text-white/40">
                       Email address cannot be changed.
                     </p>
                   </div>
@@ -350,7 +350,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold">Change password</p>
-              <p className="text-xs text-white/40 mt-0.5">
+              <p className="text-xs text-white/60 mt-0.5">
                 Ensure your account is using a long, random password to stay
                 secure.
               </p>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="currentPwd"
-                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                     >
                       Current password
                     </Label>
@@ -396,7 +396,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="newPwd"
-                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                     >
                       New password
                     </Label>
@@ -415,7 +415,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="confirmPwd"
-                      className="text-[10px] font-bold uppercase tracking-widest text-white/40"
+                      className="text-[10px] font-bold uppercase tracking-widest text-white/60"
                     >
                       Confirm password
                     </Label>
@@ -469,7 +469,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold">Delete account</p>
-              <p className="text-xs text-white/40 mt-0.5">
+              <p className="text-xs text-white/60 mt-0.5">
                 Permanently remove your account and all associated data.
               </p>
             </div>

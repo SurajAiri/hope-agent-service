@@ -108,13 +108,13 @@ export function Sidebar() {
           <span className="font-bold text-sm tracking-tight gradient-text">
             Hope
           </span>
-          <p className="text-[10px] text-white/30 leading-none mt-0.5">Developer Platform</p>
+          <p className="text-[10px] text-white/50 leading-none mt-0.5">Developer Platform</p>
         </div>
       </div>
 
       {/* Org switcher */}
       <div className="px-3 pt-3 pb-2">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-1 mb-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 px-1 mb-1.5">
           Organization
         </p>
         <DropdownMenu>
@@ -132,7 +132,7 @@ export function Sidebar() {
                 <span className="truncate text-left flex-1 max-w-[140px]">
                   {selectedOrg?.name ?? "Select organization"}
                 </span>
-                <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" />
+                <ChevronDown className="h-3.5 w-3.5 text-white/60 shrink-0" />
               </button>
             }
           />
@@ -182,7 +182,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-1 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 px-1 mb-2">
           Navigation
         </p>
         {NAV.filter(item => !(item.label === "Members" && selectedOrg?.role === "member")).map((item) => {
@@ -199,7 +199,7 @@ export function Sidebar() {
                 "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-all duration-150",
                 isActive
                   ? "bg-white/[0.08] text-white"
-                  : "text-white/50 hover:bg-white/[0.05] hover:text-white/80",
+                  : "text-white/70 hover:bg-white/[0.05] hover:text-white/80",
               )}
             >
               {/* Active indicator */}
@@ -217,7 +217,7 @@ export function Sidebar() {
                   "h-4 w-4 shrink-0 transition-colors",
                   isActive
                     ? "text-primary"
-                    : "text-white/40 group-hover:text-white/60",
+                    : "text-white/60 group-hover:text-white/60",
                 )}
               />
               {item.label}
@@ -230,10 +230,10 @@ export function Sidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <span className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-white/25 cursor-not-allowed">
+              <span className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-white/40 cursor-not-allowed">
                 <BookOpen className="h-4 w-4 shrink-0" />
                 Documentation
-                <span className="ml-auto text-[9px] bg-white/[0.06] text-white/30 border border-white/[0.08] rounded px-1 py-0.5">
+                <span className="ml-auto text-[9px] bg-white/[0.06] text-white/50 border border-white/[0.08] rounded px-1 py-0.5">
                   Soon
                 </span>
               </span>
@@ -265,11 +265,11 @@ export function Sidebar() {
                 </Avatar>
                 <div className="flex-1 overflow-hidden text-left">
                   <p className="truncate font-semibold text-white/90">{user?.name || "User"}</p>
-                  <p className="truncate text-white/35 text-[10px]">
+                  <p className="truncate text-white/50 text-[10px]">
                     {user?.email ?? ""}
                   </p>
                 </div>
-                <ChevronDown className="h-3.5 w-3.5 text-white/30 shrink-0" />
+                <ChevronDown className="h-3.5 w-3.5 text-white/50 shrink-0" />
               </button>
             }
           />

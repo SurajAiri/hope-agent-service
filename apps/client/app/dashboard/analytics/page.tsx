@@ -136,10 +136,10 @@ function StatCard({
         <Icon className="h-4.5 w-4.5 text-white" />
       </div>
       <p className="text-2xl font-bold tracking-tight">{value}</p>
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-white/35 mt-1">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50 mt-1">
         {label}
       </p>
-      {sub && <p className="text-xs text-white/25 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-white/40 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -206,7 +206,7 @@ export default function AnalyticsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-sm text-white/45 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             Usage stats, token trends, and agent performance.
           </p>
         </div>
@@ -238,7 +238,7 @@ export default function AnalyticsPage() {
             variant="ghost"
             size="sm"
             onClick={fetchAnalytics}
-            className="gap-2 text-white/40 hover:text-white h-9"
+            className="gap-2 text-white/60 hover:text-white h-9"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
@@ -307,7 +307,7 @@ export default function AnalyticsPage() {
             {loading ? (
               <Skeleton className="h-52 w-full rounded-lg" />
             ) : (data?.runsOverTime?.length ?? 0) === 0 ? (
-              <div className="flex h-52 items-center justify-center text-xs text-white/25">
+              <div className="flex h-52 items-center justify-center text-xs text-white/40">
                 No data for this period
               </div>
             ) : (
@@ -333,7 +333,7 @@ export default function AnalyticsPage() {
           {loading ? (
             <Skeleton className="h-52 w-full rounded-lg" />
           ) : (data?.statusDist?.length ?? 0) === 0 ? (
-            <div className="flex h-52 items-center justify-center text-xs text-white/25">
+            <div className="flex h-52 items-center justify-center text-xs text-white/40">
               No data
             </div>
           ) : (
@@ -362,7 +362,7 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-2 justify-center">
                 {data!.statusDist.map((d) => (
-                  <span key={d.status} className="flex items-center gap-1.5 text-[11px] text-white/50">
+                  <span key={d.status} className="flex items-center gap-1.5 text-[11px] text-white/70">
                     <span
                       className="h-2 w-2 rounded-full shrink-0"
                       style={{ background: STATUS_COLORS[d.status] ?? "oklch(0.50 0 0)" }}
@@ -384,7 +384,7 @@ export default function AnalyticsPage() {
             {loading ? (
               <Skeleton className="h-52 w-full rounded-lg" />
             ) : (data?.tokenUsage?.length ?? 0) === 0 ? (
-              <div className="flex h-52 items-center justify-center text-xs text-white/25">
+              <div className="flex h-52 items-center justify-center text-xs text-white/40">
                 No token data — available when agents report usage
               </div>
             ) : (
@@ -417,7 +417,7 @@ export default function AnalyticsPage() {
           {loading ? (
             <Skeleton className="h-52 w-full rounded-lg" />
           ) : (data?.modeDist?.length ?? 0) === 0 ? (
-            <div className="flex h-52 items-center justify-center text-xs text-white/25">No data</div>
+            <div className="flex h-52 items-center justify-center text-xs text-white/40">No data</div>
           ) : (
             <div className="space-y-3 pt-2">
               {data!.modeDist.map((d) => {
@@ -427,7 +427,7 @@ export default function AnalyticsPage() {
                   <div key={d.runMode} className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="font-mono text-white/60 capitalize">{d.runMode}</span>
-                      <span className="text-white/35">{d.count} ({pct}%)</span>
+                      <span className="text-white/50">{d.count} ({pct}%)</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "oklch(1 0 0 / 6%)" }}>
                       <div
@@ -451,12 +451,12 @@ export default function AnalyticsPage() {
         {loading ? (
           <Skeleton className="h-40 w-full rounded-lg" />
         ) : (data?.topAgents?.length ?? 0) === 0 ? (
-          <div className="flex h-24 items-center justify-center text-xs text-white/25">No data</div>
+          <div className="flex h-24 items-center justify-center text-xs text-white/40">No data</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-white/30 uppercase tracking-widest text-[10px]">
+                <tr className="text-white/50 uppercase tracking-widest text-[10px]">
                   <th className="pb-3 text-left font-semibold">#</th>
                   <th className="pb-3 text-left font-semibold">Agent ID</th>
                   <th className="pb-3 text-right font-semibold">Calls</th>
@@ -466,7 +466,7 @@ export default function AnalyticsPage() {
               <tbody className="divide-y divide-white/[0.04]">
                 {data!.topAgents.map((agent, i) => (
                   <tr key={agent.agentId} className="group">
-                    <td className="py-2.5 text-white/25 font-mono">{i + 1}</td>
+                    <td className="py-2.5 text-white/40 font-mono">{i + 1}</td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-2">
                         <div
@@ -481,7 +481,7 @@ export default function AnalyticsPage() {
                     <td className="py-2.5 text-right font-mono text-white/60">
                       {agent.count.toLocaleString()}
                     </td>
-                    <td className="py-2.5 text-right font-mono text-white/40">
+                    <td className="py-2.5 text-right font-mono text-white/60">
                       {agent.avgDurationMs < 1000
                         ? `${agent.avgDurationMs}ms`
                         : `${(agent.avgDurationMs / 1000).toFixed(1)}s`}

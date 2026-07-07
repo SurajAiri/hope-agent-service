@@ -153,11 +153,11 @@ export default function MembersPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04]">
-          <Users className="h-6 w-6 text-white/30" />
+          <Users className="h-6 w-6 text-white/50" />
         </div>
         <div className="text-center">
           <h2 className="text-xl font-bold">Access Denied</h2>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-white/70 mt-1">
             You must be an admin or owner to view and manage members.
           </p>
         </div>
@@ -191,7 +191,7 @@ export default function MembersPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-white/45 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             Manage who has access to this organization.
           </p>
         </div>
@@ -221,7 +221,7 @@ export default function MembersPage() {
                     Email address
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 pointer-events-none" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
                     <Input
                       id="inviteEmail"
                       type="email"
@@ -281,7 +281,7 @@ export default function MembersPage() {
           }}
         >
           {["Member", "Email", "Role", "Status", ""].map((h, i) => (
-            <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+            <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-white/50">
               {h}
             </span>
           ))}
@@ -302,7 +302,7 @@ export default function MembersPage() {
               </div>
             ))
           ) : members.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-white/30">
+            <div className="flex flex-col items-center gap-3 py-16 text-white/50">
               <div
                 className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ background: "oklch(1 0 0 / 4%)" }}
@@ -310,7 +310,7 @@ export default function MembersPage() {
                 <Users className="h-6 w-6" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-white/50">No members yet</p>
+                <p className="text-sm font-medium text-white/70">No members yet</p>
                 <p className="text-xs mt-0.5">Invite your team to get started.</p>
               </div>
             </div>
@@ -344,14 +344,14 @@ export default function MembersPage() {
                       <p className="text-sm font-semibold truncate">
                         {fullName(m)}
                         {isCurrentUser && (
-                          <span className="ml-1.5 text-[10px] text-white/30 font-normal">(you)</span>
+                          <span className="ml-1.5 text-[10px] text-white/50 font-normal">(you)</span>
                         )}
                       </p>
                     </div>
                   </div>
 
                   {/* Email */}
-                  <p className="text-xs text-white/45 truncate">{m.user.email}</p>
+                  <p className="text-xs text-white/60 truncate">{m.user.email}</p>
 
                   {/* Role */}
                   <span
@@ -380,7 +380,7 @@ export default function MembersPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-white hover:bg-white/[0.06]">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white hover:bg-white/[0.06]">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             }

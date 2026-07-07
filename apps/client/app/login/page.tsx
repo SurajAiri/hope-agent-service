@@ -46,7 +46,7 @@ export default function LoginPage() {
           />
           <div className="text-center">
             <h1 className="text-2xl font-bold gradient-text tracking-tight">AgentOS</h1>
-            <p className="text-sm text-white/40 mt-1">Sign in to your workspace</p>
+            <p className="text-sm text-white/60 mt-1">Sign in to your workspace</p>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
                 Email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
                 <Input
                   id="email"
                   type="email"
@@ -76,7 +76,7 @@ export default function LoginPage() {
                   required
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -87,7 +87,7 @@ export default function LoginPage() {
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/25 pointer-events-none" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
                 <Input
                   id="password"
                   type="password"
@@ -96,7 +96,7 @@ export default function LoginPage() {
                   required
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/25 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
+                  className="pl-10 h-11 bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/40 focus-visible:border-primary/50 focus-visible:bg-white/[0.06] transition-all"
                 />
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-white/35 mt-6">
+        <p className="text-center text-sm text-white/50 mt-6">
           Don&apos;t have an account?{" "}
           <Link
             href="/register"

@@ -57,7 +57,7 @@ export default function DashboardLayout({
         />
         <div className="text-center">
           <p className="text-sm font-semibold gradient-text">Hope</p>
-          <p className="text-xs text-white/35 mt-0.5">Loading workspace…</p>
+          <p className="text-xs text-white/50 mt-0.5">Loading workspace…</p>
         </div>
         {/* Spinner ring */}
         <div

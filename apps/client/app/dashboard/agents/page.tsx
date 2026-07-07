@@ -178,7 +178,7 @@ export default function AgentsPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-white/45 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             Browse registered agents and test them in the playground.
           </p>
         </div>
@@ -186,7 +186,7 @@ export default function AgentsPage() {
           variant="ghost"
           size="sm"
           onClick={fetchAgents}
-          className="gap-2 text-white/40 hover:text-white h-9"
+          className="gap-2 text-white/60 hover:text-white h-9"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
@@ -235,11 +235,11 @@ export default function AgentsPage() {
                 className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ background: "oklch(1 0 0 / 4%)" }}
               >
-                <Bot className="h-6 w-6 text-white/30" />
+                <Bot className="h-6 w-6 text-white/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-white/50">No agents registered</p>
-                <p className="text-xs text-white/30 mt-0.5">Register agents in your GenAI service runner.</p>
+                <p className="text-sm font-medium text-white/70">No agents registered</p>
+                <p className="text-xs text-white/50 mt-0.5">Register agents in your GenAI service runner.</p>
               </div>
             </div>
           ) : (
@@ -267,7 +267,7 @@ export default function AgentsPage() {
                         <span className="text-[10px] font-semibold text-emerald-400">active</span>
                       </div>
                     </div>
-                    <p className="text-xs text-white/40 mt-1">
+                    <p className="text-xs text-white/60 mt-1">
                       {agent.description ?? "No description provided."}
                     </p>
                   </div>
@@ -297,12 +297,12 @@ export default function AgentsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold">Request</p>
-                  <p className="text-xs text-white/35">Configure and fire an agent run.</p>
+                  <p className="text-xs text-white/50">Configure and fire an agent run.</p>
                 </div>
               </div>
               <div className="p-5 space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Agent</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/60">Agent</Label>
                   {loading ? (
                     <Skeleton className="h-10 w-full rounded-lg" />
                   ) : (
@@ -322,7 +322,7 @@ export default function AgentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Mode</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/60">Mode</Label>
                   <Select value={runMode} onValueChange={(v) => setRunMode(v as "sync" | "async")}>
                     <SelectTrigger className="h-10 text-xs bg-white/[0.04] border-white/[0.08]">
                       <SelectValue />
@@ -335,8 +335,8 @@ export default function AgentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                    Thread ID <span className="text-white/25 normal-case tracking-normal font-medium">(optional)</span>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+                    Thread ID <span className="text-white/40 normal-case tracking-normal font-medium">(optional)</span>
                   </Label>
                   <Input
                     placeholder="Leave empty to create new thread"
@@ -347,7 +347,7 @@ export default function AgentsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Message</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-white/60">Message</Label>
                   <Textarea
                     placeholder="Type your message…"
                     value={message}
@@ -394,10 +394,10 @@ export default function AgentsPage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Terminal className="h-3.5 w-3.5 text-white/30" />
-                    <span className="text-xs font-semibold text-white/50">Response</span>
+                    <Terminal className="h-3.5 w-3.5 text-white/50" />
+                    <span className="text-xs font-semibold text-white/70">Response</span>
                     {result && (
-                      <code className="text-[10px] text-white/20 font-mono">
+                      <code className="text-[10px] text-white/40 font-mono">
                         {result.session_id.slice(0, 12)}…
                       </code>
                     )}
@@ -407,7 +407,7 @@ export default function AgentsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-white/30 hover:text-white hover:bg-white/[0.06]"
+                    className="h-7 w-7 text-white/50 hover:text-white hover:bg-white/[0.06]"
                     onClick={() => copyJSON(result)}
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -421,7 +421,7 @@ export default function AgentsPage() {
                   <div className="flex h-52 items-center justify-center">
                     <div className="text-center">
                       <Terminal className="h-8 w-8 text-white/10 mx-auto mb-2" />
-                      <p className="text-xs text-white/25 font-mono">{"// run an agent to see output"}</p>
+                      <p className="text-xs text-white/40 font-mono">{"// run an agent to see output"}</p>
                     </div>
                   </div>
                 )}
@@ -429,7 +429,7 @@ export default function AgentsPage() {
                   <div className="flex h-52 items-center justify-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <p className="text-xs text-white/35 font-mono">Running agent…</p>
+                      <p className="text-xs text-white/50 font-mono">Running agent…</p>
                     </div>
                   </div>
                 )}
@@ -451,7 +451,7 @@ export default function AgentsPage() {
                             {result.status}
                           </span>
                           {result.duration_ms && (
-                            <span className="ml-auto text-[10px] text-white/30 font-mono">
+                            <span className="ml-auto text-[10px] text-white/50 font-mono">
                               {result.duration_ms}ms
                             </span>
                           )}
@@ -482,8 +482,8 @@ export default function AgentsPage() {
               <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.05]">
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-2">
-                    <Terminal className="h-3.5 w-3.5 text-white/30" />
-                    <span className="text-xs font-semibold text-white/50">Developer cURL</span>
+                    <Terminal className="h-3.5 w-3.5 text-white/50" />
+                    <span className="text-xs font-semibold text-white/70">Developer cURL</span>
                     <span
                       className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
                       style={{
@@ -495,14 +495,14 @@ export default function AgentsPage() {
                       X-Hope-Token
                     </span>
                   </div>
-                  <p className="text-[10px] text-white/25 pl-5.5">
+                  <p className="text-[10px] text-white/40 pl-5.5">
                     Use your API token — no org ID in the URL.
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-[10px] gap-1.5 text-white/30 hover:text-white px-2"
+                  className="h-6 text-[10px] gap-1.5 text-white/50 hover:text-white px-2"
                   onClick={() => {
                     const curl = `curl -X POST \\
   '${API_BASE.replace("/api/v1", "")}/api/v1/run/${runMode === "sync" ? "sync" : ""}' \\
@@ -521,7 +521,7 @@ export default function AgentsPage() {
                 </Button>
               </div>
               <div className="p-4 overflow-x-auto">
-                <pre className="text-[11px] font-mono text-white/50 whitespace-pre">
+                <pre className="text-[11px] font-mono text-white/70 whitespace-pre">
 {`curl -X POST \\
   '${API_BASE.replace("/api/v1", "")}/api/v1/run${runMode === "sync" ? "/sync" : ""}' \\
   -H 'X-Hope-Token: <your-api-token>' \\

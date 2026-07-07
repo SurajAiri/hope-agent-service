@@ -133,7 +133,7 @@ export default function TokensPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-white/45 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             Manage API keys for programmatic access to agents.
           </p>
         </div>
@@ -212,7 +212,7 @@ export default function TokensPage() {
                         <span className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
                         <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
                       </div>
-                      <span className="text-[10px] text-white/20 font-mono">API KEY</span>
+                      <span className="text-[10px] text-white/40 font-mono">API KEY</span>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-3">
                       <code className="flex-1 font-mono text-xs text-emerald-400/90 break-all select-all">
@@ -222,7 +222,7 @@ export default function TokensPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-white/30 hover:text-white hover:bg-white/[0.06]"
+                          className="h-7 w-7 text-white/50 hover:text-white hover:bg-white/[0.06]"
                           onClick={() => setShowKey(!showKey)}
                         >
                           {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -230,7 +230,7 @@ export default function TokensPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-white/30 hover:text-emerald-400 hover:bg-emerald-400/10"
+                          className="h-7 w-7 text-white/50 hover:text-emerald-400 hover:bg-emerald-400/10"
                           onClick={() => copyKey(newKeyValue!)}
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -270,7 +270,7 @@ export default function TokensPage() {
           }}
         >
           {["Name", "Prefix", "Status", "Created", "Expires", ""].map((h, i) => (
-            <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+            <span key={i} className="text-[10px] font-bold uppercase tracking-widest text-white/50">
               {h}
             </span>
           ))}
@@ -288,7 +288,7 @@ export default function TokensPage() {
               </div>
             ))
           ) : keys.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-white/30">
+            <div className="flex flex-col items-center gap-3 py-16 text-white/50">
               <div
                 className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ background: "oklch(1 0 0 / 4%)" }}
@@ -296,7 +296,7 @@ export default function TokensPage() {
                 <KeyRound className="h-6 w-6" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-white/50">No API tokens yet</p>
+                <p className="text-sm font-medium text-white/70">No API tokens yet</p>
                 <p className="text-xs mt-0.5">Create your first token to start using the API.</p>
               </div>
             </div>
@@ -334,7 +334,7 @@ export default function TokensPage() {
                     <code className="text-xs font-mono text-emerald-400/80">{key.prefix}…</code>
                     <button
                       onClick={() => copyKey(key.prefix, key.id)}
-                      className="ml-0.5 text-white/20 hover:text-emerald-400 transition-colors"
+                      className="ml-0.5 text-white/40 hover:text-emerald-400 transition-colors"
                     >
                       <Copy className={`h-3 w-3 transition-colors ${copiedId === key.id ? "text-emerald-400" : ""}`} />
                     </button>
@@ -343,16 +343,16 @@ export default function TokensPage() {
                   {/* Status */}
                   <div className="flex items-center gap-1.5">
                     <span className={`status-dot ${isActive ? "status-dot-active" : "status-dot-revoked"}`} />
-                    <span className={`text-xs font-medium capitalize ${isActive ? "text-emerald-400" : "text-white/35"}`}>
+                    <span className={`text-xs font-medium capitalize ${isActive ? "text-emerald-400" : "text-white/50"}`}>
                       {key.status}
                     </span>
                   </div>
 
                   {/* Created */}
-                  <span className="text-xs text-white/40">{formatDate(key.createdAt)}</span>
+                  <span className="text-xs text-white/60">{formatDate(key.createdAt)}</span>
 
                   {/* Expires */}
-                  <span className="text-xs text-white/40">
+                  <span className="text-xs text-white/60">
                     {key.expiresAt ? formatDate(key.expiresAt) : "Never"}
                   </span>
 
@@ -361,7 +361,7 @@ export default function TokensPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-white/25 hover:text-red-400 hover:bg-red-400/10"
+                      className="h-7 w-7 text-white/40 hover:text-red-400 hover:bg-red-400/10"
                       onClick={() => setRevokeTarget(key)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

@@ -119,7 +119,7 @@ function TraceRow({ trace }: { trace: RunTrace }) {
         </span>
 
         {/* Triggered by */}
-        <span className="shrink-0 flex items-center gap-1 text-[10px] text-white/30">
+        <span className="shrink-0 flex items-center gap-1 text-[10px] text-white/50">
           {trace.triggeredBy === "api_token"
             ? <Key className="h-3 w-3" />
             : <FlaskConical className="h-3 w-3" />}
@@ -127,33 +127,33 @@ function TraceRow({ trace }: { trace: RunTrace }) {
         </span>
 
         {/* Duration */}
-        <span className="ml-auto shrink-0 font-mono text-[11px] text-white/35">
+        <span className="ml-auto shrink-0 font-mono text-[11px] text-white/50">
           {formatDuration(trace.durationMs)}
         </span>
 
         {/* Tokens */}
         {(trace.tokensIn !== null || trace.tokensOut !== null) && (
-          <span className="shrink-0 text-[10px] text-white/25 font-mono">
+          <span className="shrink-0 text-[10px] text-white/40 font-mono">
             ↑{trace.tokensIn ?? 0} ↓{trace.tokensOut ?? 0}
           </span>
         )}
 
         {/* Time */}
-        <span className="shrink-0 text-[10px] text-white/25 hidden md:block">
+        <span className="shrink-0 text-[10px] text-white/40 hidden md:block">
           {formatTime(trace.createdAt)}
         </span>
 
         {/* Expand chevron */}
         {expanded
-          ? <ChevronDown className="h-3.5 w-3.5 text-white/25 shrink-0" />
-          : <ChevronRight className="h-3.5 w-3.5 text-white/25 shrink-0" />}
+          ? <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" />
+          : <ChevronRight className="h-3.5 w-3.5 text-white/40 shrink-0" />}
       </button>
 
       {/* Expanded detail */}
       {expanded && (
         <div className="border-t border-white/[0.05] px-4 py-4 space-y-4">
           {/* Meta row */}
-          <div className="flex flex-wrap gap-4 text-[11px] text-white/40 font-mono">
+          <div className="flex flex-wrap gap-4 text-[11px] text-white/60 font-mono">
             <span>ID: <span className="text-white/60">{trace.id}</span></span>
             {trace.sessionId && (
               <span>Session: <span className="text-white/60">{trace.sessionId}</span></span>
@@ -181,10 +181,10 @@ function TraceRow({ trace }: { trace: RunTrace }) {
             {/* Input */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">Input</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Input</p>
                 <Button
                   variant="ghost" size="icon"
-                  className="h-5 w-5 text-white/20 hover:text-white"
+                  className="h-5 w-5 text-white/40 hover:text-white"
                   onClick={() => copyJSON(trace.input)}
                 >
                   <Copy className="h-3 w-3" />
@@ -203,11 +203,11 @@ function TraceRow({ trace }: { trace: RunTrace }) {
             {/* Output */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">Output</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Output</p>
                 {trace.output && (
                   <Button
                     variant="ghost" size="icon"
-                    className="h-5 w-5 text-white/20 hover:text-white"
+                    className="h-5 w-5 text-white/40 hover:text-white"
                     onClick={() => copyJSON(trace.output)}
                   >
                     <Copy className="h-3 w-3" />
@@ -309,7 +309,7 @@ export default function TracesPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-white/45 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             Every agent run — from API token and playground — logged in real-time.
           </p>
         </div>
@@ -317,7 +317,7 @@ export default function TracesPage() {
           variant="ghost"
           size="sm"
           onClick={fetchTraces}
-          className="gap-2 text-white/40 hover:text-white h-9"
+          className="gap-2 text-white/60 hover:text-white h-9"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -330,32 +330,32 @@ export default function TracesPage() {
         style={{ background: "oklch(1 0 0 / 3%)", border: "1px solid oklch(1 0 0 / 7%)" }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-          <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
+          <Search className="h-3.5 w-3.5 text-white/50 shrink-0" />
           <Input
             placeholder="Filter by agent ID…"
             value={agentInput}
             onChange={(e) => setAgentInput(e.target.value)}
-            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
+            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/40"
             onKeyDown={(e) => e.key === "Enter" && applyFilters()}
           />
         </div>
         <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-          <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
+          <Search className="h-3.5 w-3.5 text-white/50 shrink-0" />
           <Input
             placeholder="Filter by session ID…"
             value={sessionInput}
             onChange={(e) => setSessionInput(e.target.value)}
-            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
+            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/40"
             onKeyDown={(e) => e.key === "Enter" && applyFilters()}
           />
         </div>
         <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-          <Search className="h-3.5 w-3.5 text-white/30 shrink-0" />
+          <Search className="h-3.5 w-3.5 text-white/50 shrink-0" />
           <Input
             placeholder="Filter by thread ID…"
             value={threadInput}
             onChange={(e) => setThreadInput(e.target.value)}
-            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/25"
+            className="h-8 text-xs bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-white/40"
             onKeyDown={(e) => e.key === "Enter" && applyFilters()}
           />
         </div>
@@ -375,7 +375,7 @@ export default function TracesPage() {
         <Button
           size="sm"
           variant="ghost"
-          className="h-8 text-xs px-3 text-white/40 hover:text-white"
+          className="h-8 text-xs px-3 text-white/60 hover:text-white"
           onClick={applyFilters}
         >
           Apply
@@ -383,7 +383,7 @@ export default function TracesPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[10px] text-white/30 font-mono flex-wrap">
+      <div className="flex items-center gap-4 text-[10px] text-white/50 font-mono flex-wrap">
         <span className="flex items-center gap-1.5"><Key className="h-3 w-3" />API token</span>
         <span className="flex items-center gap-1.5"><FlaskConical className="h-3 w-3" />Playground</span>
         <span className="ml-auto">↑ tokens in  ↓ tokens out</span>
@@ -404,10 +404,10 @@ export default function TracesPage() {
               className="flex h-12 w-12 items-center justify-center rounded-xl"
               style={{ background: "oklch(1 0 0 / 4%)" }}
             >
-              <Activity className="h-6 w-6 text-white/20" />
+              <Activity className="h-6 w-6 text-white/40" />
             </div>
-            <p className="text-sm text-white/40">No traces yet</p>
-            <p className="text-xs text-white/25">Run an agent to see traces here.</p>
+            <p className="text-sm text-white/60">No traces yet</p>
+            <p className="text-xs text-white/40">Run an agent to see traces here.</p>
           </div>
         ) : (
           traces.map((trace) => <TraceRow key={trace.id} trace={trace} />)
@@ -416,7 +416,7 @@ export default function TracesPage() {
 
       {/* Pagination */}
       {total > LIMIT && (
-        <div className="flex items-center justify-between text-xs text-white/35">
+        <div className="flex items-center justify-between text-xs text-white/50">
           <span>
             Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}
           </span>
