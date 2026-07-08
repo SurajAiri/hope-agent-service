@@ -27,10 +27,10 @@ async def get_weather(city: str) -> str:
     return f"Sunny, 25°C in {city}"
 ```
 
-The decorator creates a `BaseTool` instance and assigns it to `get_weather`. Pass it directly to `create_agent()`:
+The decorator creates a `BaseTool` instance and assigns it to `get_weather`. Pass it directly to `Agent.create()`:
 
 ```python
-create_agent(agent_id, agent_profile=PROFILE, tools=[get_weather])
+Agent.create(agent_id, agent_profile=PROFILE, tools=[get_weather])
 ```
 
 ### Adding parameter descriptions
@@ -124,7 +124,7 @@ class WebSearchTool(BaseTool):
 Instantiate and pass to the agent:
 
 ```python
-create_agent(agent_id, agent_profile=PROFILE, tools=[WebSearchTool()])
+Agent.create(agent_id, agent_profile=PROFILE, tools=[WebSearchTool()])
 ```
 
 ### Required ClassVars
@@ -192,8 +192,8 @@ The `ToolRegistry` prevents dangerous tools from being dispatched concurrently. 
 Tools are provided at agent creation time. The `AgentContext` wraps them internally:
 
 ```python
-# Shorthand (most common) — pass directly to create_agent()
-create_agent(agent_id, agent_profile=PROFILE, tools=[WebSearchTool(), CalcTool()])
+# Shorthand (most common) — pass directly to Agent.create()
+Agent.create(agent_id, agent_profile=PROFILE, tools=[WebSearchTool(), CalcTool()])
 
 # Manual — if you need to build AgentContext yourself
 from agent_sdk import AgentContext

@@ -12,10 +12,13 @@ Responsibilities:
 
   2. TRIGGER RUN (per request, called by FastAPI route handler / worker):
      - Receives trigger params
-     - Resolves Agent by agent_id (calls developer's factory function)
+     - Resolves Agent by agent_id (calls developer's factory function — fresh
+       instance every call, including HITL resumes; see agent_sdk.agent.BaseAgent
+       module docstring point 4 for why that means __aenter__/__aexit__ is
+       scoped to one call, not a whole HITL-spanning session)
      - Creates Streamer (SSE for streaming, Null for non-streaming)
      - Injects _usage_tracker and _streamer into ALL AgentCaller instances
-     - Calls engine.trigger_session(params, agent)
+     - Calls engine.trigger_session(params, agent) inside `async with agent:`
 
 Runner is the ONLY place where infrastructure meets agent logic.
 Agent factory functions return Agent objects — not raw tuples.
@@ -278,9 +281,16 @@ class Runner:
         # 4. Inject usage_tracker + streamer into ALL AgentCaller instances
         self._inject_dependencies(agent, streamer)
 
-        # 5. Run
+        # 5. Run — `async with agent` scopes BaseAgent.__aenter__/__aexit__ to
+        # exactly this one trigger_session() call (see agent_sdk.agent.BaseAgent
+        # module docstring, point 4). This is NOT the same as a HITL-spanning
+        # lifecycle: a HITL resume days later calls _resolve_agent() again and
+        # gets a brand-new Agent instance from the factory, which re-enters
+        # __aenter__ fresh. Default no-op unless a runner overrides it to open/
+        # close a per-run resource (http client, db connection, etc.).
         try:
-            state = await self._engine.trigger_session(params=params, agent=agent)
+            async with agent:
+                state = await self._engine.trigger_session(params=params, agent=agent)
         finally:
             # 6. Close streamer — signals SSE generator's DONE sentinel
             streamer.close()

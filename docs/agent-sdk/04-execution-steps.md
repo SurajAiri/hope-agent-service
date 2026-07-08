@@ -21,10 +21,10 @@ This is your primary control surface: you decide how to call the LLM, when to in
 The simplest step. Calls the LLM once and returns `COMPLETE`.
 
 ```python
-from agent_sdk import DefaultExecutionStep, create_agent
+from agent_sdk import Agent, DefaultExecutionStep
 
 def my_factory(agent_id: str) -> Agent:
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=PROFILE,
         # execution_step defaults to DefaultExecutionStep() — no need to specify
@@ -46,10 +46,10 @@ Use this for simple Q&A agents or chatbots that don't need tools.
 The built-in **Reason + Act** loop. Handles the LLM-tool-LLM pattern automatically.
 
 ```python
-from agent_sdk import ReActExecutionStep, create_agent
+from agent_sdk import Agent, ReActExecutionStep
 
 def my_factory(agent_id: str) -> Agent:
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=PROFILE,
         tools=[WebSearchTool(), CalcTool()],

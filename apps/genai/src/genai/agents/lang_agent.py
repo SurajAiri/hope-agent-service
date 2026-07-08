@@ -1,7 +1,7 @@
 """
 LangGraph agent wired into agent-service-core, calling the LLM via LiteLLM
 directly inside the graph node (NOT via agent_sdk.LitellmAgentRunner —
-create_langgraph_agent()'s own docstring says LangGraph agents make their
+LangGraphAgent.create()'s own docstring says LangGraph agents make their
 own internal model calls; the LitellmAgentRunner/UsageTracker path is
 bypassed by design for graph-internal calls).
 
@@ -33,10 +33,18 @@ END-TO-END FLOW (resume is NOT automatic — see main.py note at bottom):
     1. POST /call {"agent_id": "langgraph-litellm-approval", "messages": [...]}
        -> run pauses, status == "hitl"
     2. GET /session/{session_id}/hitl
-       -> {"session_id": "...", "actions": [{"id": "...", "value": {...}, "response": null}]}
+       -> {"session_id": "...", "status": "hitl", "actions": [
+            {"id": "...", "question": "...", "description": "...",
+             "options": [...], "response": null}
+          ]}
+          (agent_sdk.hitl.HitlAction — LangGraphExecutionStep builds this
+          automatically from the interrupt() payload, see
+          agent_sdk.langgraph.runner._interrupt_to_hitl_action)
     3. POST /session/{session_id}/hitl
-       -> body is the SAME list with "response" filled in on the answered action(s):
-          [{"id": "<same id>", "value": {...}, "response": {"decision": "approve", "edited_draft": null}}]
+       -> body is JUST the answer(s), not the full action list:
+          [{"action_id": "<same id>", "response": {"decision": "approve", "edited_draft": null}}]
+          (agent_sdk.hitl.HitlResponseInput — Engine looks up the stored
+          action by id and merges `response` in, see engine.submit_hitl_response)
     4. POST /call {"session_id": "<same session_id>", "messages": [...], "agent_id": "..."}
        -> YOU must call this. Nothing does it for you. This re-triggers
           resume_check.hitl_action() -> True -> resume_work() -> graph
@@ -48,8 +56,7 @@ from __future__ import annotations
 import os
 from typing import Any, Literal
 
-from agent_sdk import Agent
-from agent_sdk.langgraph import create_langgraph_agent
+from agent_sdk.langgraph import LangGraphAgent
 from langchain_core.messages import AIMessage, convert_to_openai_messages
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.types import interrupt
@@ -163,8 +170,8 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def langgraph_litellm_agent_factory(agent_id: str) -> Agent:
-    return create_langgraph_agent(
+def langgraph_litellm_agent_factory(agent_id: str) -> LangGraphAgent:
+    return LangGraphAgent.create(
         agent_id,
         graph_builder=build_graph,
         max_runs=10,
@@ -185,13 +192,14 @@ def langgraph_litellm_agent_factory(agent_id: str) -> Agent:
 # in main.py with this:
 #
 # @app.post("/session/{session_id}/hitl", tags=["Agent Session"])
-# async def submit_hitl_actions(session_id: str, actions: list[dict[str, Any]]):
+# async def submit_hitl_actions(session_id: str, responses: list[HitlResponseInput]):
 #     r = _get_runner()
 #     if r._engine is None:
 #         raise HTTPException(status_code=503, detail="Engine not initialized")
 #
-#     await r._engine.submit_hitl_response(session_id, actions)
+#     await r._engine.submit_hitl_response(session_id, responses)
 #
+#     actions = await r._engine._execution_manager.load_hitl_actions(session_id)
 #     all_answered = all(a.get("response") is not None for a in actions)
 #     if all_answered:
 #         state = await r._engine._execution_manager.checkpoint_restore(session_id)

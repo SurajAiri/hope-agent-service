@@ -10,7 +10,7 @@ All agent configuration lives in `AgentProfile`. It defines:
 
 ## `AgentProfile`
 
-`AgentProfile` is the central configuration object for your agent. You create one and pass it to `create_agent()`.
+`AgentProfile` is the central configuration object for your agent. You create one and pass it to `Agent.create()`.
 
 ```python
 from agent_sdk import AgentProfile, LlmConfig

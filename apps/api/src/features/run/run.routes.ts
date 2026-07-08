@@ -50,6 +50,9 @@ router.use(apiTokenMiddleware);
  *                     content: { type: string }
  *               thread_id:
  *                 type: string
+ *               initial_state:
+ *                 type: object
+ *                 description: Arbitrary first-run state for the agent (consulted once, on the first run of a session only)
  *               extras:
  *                 type: object
  *     responses:

@@ -1,6 +1,6 @@
 [project]
 name = "runner"
-version = "0.1.0"
+version = "0.2.0"
 description = "Runner Framework — infrastructure bridge between engine and deployment targets"
 readme = "README.md"
 authors = [{ name = "Suraj Airi", email = "surajairi.ml@gmail.com" }]

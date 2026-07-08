@@ -36,8 +36,9 @@ import abc
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from agent_sdk.hitl import HitlAction
 from agent_sdk.messages import AnyMessage, AssistantMessage, SystemMessage, ToolCallMessage
 
 if TYPE_CHECKING:
@@ -53,10 +54,13 @@ class StepStatus(str, Enum):
     ERROR = "error"              # Step failed — Engine sets FAIL, breaks loop
     INTERRUPTED = "interrupted"  # Developer detected an interrupt — Engine sets INTERRUPT
     HITL = "hitl"                # Needs human input before continuing — Engine sets HITL,
-                                  # persists StepResult.hitl_actions as the pending actions.
-                                  # Re-triggering later re-enters resume_check.hitl_action(),
-                                  # which decides (from checkpoint_data["hitl_actions"]) whether
-                                  # every action now has a response and the loop should resume.
+                                  # persists StepResult.hitl_actions (list[HitlAction]) as the
+                                  # pending actions. Re-triggering later re-enters
+                                  # resume_check.hitl_action(), which decides (from
+                                  # checkpoint_data["hitl_actions"]) whether every action now
+                                  # has a response and the loop should resume. The application
+                                  # layer answers via HitlResponseInput(action_id, response) —
+                                  # see agent_sdk.hitl and Engine.submit_hitl_response.
 
 
 class StepContext(BaseModel):
@@ -98,10 +102,23 @@ class StepResult(BaseModel):
     # Optional: updated state_data to persist to checkpoint (merged into checkpoint_data by Engine)
     state_data: dict[str, Any] | None = None
 
-    # Required when status == HITL: the pending human actions. Each entry must
-    # be JSON-serializable (Engine stores this list verbatim in Redis). Engine
-    # ignores this field for every other status.
+    # Required when status == HITL: the pending human actions. Accepts either
+    # HitlAction instances or plain dicts matching its shape (id, question,
+    # description, options, response) — both are normalized to dicts here so
+    # Engine always gets something JSON-serializable to store in Redis
+    # verbatim. Engine ignores this field for every other status.
     hitl_actions: list[dict[str, Any]] | None = None
+
+    @field_validator("hitl_actions", mode="before")
+    @classmethod
+    def _normalize_hitl_actions(cls, value: Any) -> Any:
+        """Accept HitlAction instances (or dicts) in, always store plain dicts."""
+        if value is None:
+            return None
+        return [
+            item.model_dump() if isinstance(item, HitlAction) else item
+            for item in value
+        ]
 
     # Developer-facing metadata (not used by Engine — for observability / logging)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -221,9 +238,9 @@ class ReActExecutionStep(ExecutionStep):
 
     Example::
 
-        from agent_sdk import create_agent, ReActExecutionStep
+        from agent_sdk import Agent, ReActExecutionStep
 
-        return create_agent(
+        return Agent.create(
             agent_id="my-agent",
             agent_profile=my_profile,
             tools=[SearchTool(), CalcTool()],

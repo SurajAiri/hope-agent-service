@@ -58,39 +58,22 @@ class AgentRunner(AgentCaller[TLlmConfig], abc.ABC):
             def default_config(self) -> CallerConfig:
                 return CallerConfig()  # no LLM, no config needed
 
-    AgentProfile (new name) vs AgentConfig (deprecated alias):
-        Both work. self.agent_profile is the canonical field.
-        self.agent_config is a back-compat property pointing to self.agent_profile.
     """
 
     def __init__(
         self,
-        agent_config: "AgentProfile | None" = None,
         *,
         agent_profile: "AgentProfile | None" = None,
     ) -> None:
         """
         Args:
-            agent_config:   AgentProfile instance. Accepted for back-compat
-                            (callers using keyword agent_config= still work).
-            agent_profile:  AgentProfile instance. Preferred new name.
-                            Takes priority over agent_config if both are provided.
+            agent_profile:  AgentProfile instance. Required.
         """
-        _profile = agent_profile if agent_profile is not None else agent_config
-        if _profile is None:
+        if agent_profile is None:
             raise AgentConfigurationError(
-                "AgentRunner requires an AgentProfile. "
-                "Pass it as agent_profile=... or agent_config=... (deprecated name)."
+                "AgentRunner requires an AgentProfile. Pass it as agent_profile=..."
             )
-        self.agent_profile: AgentProfile = _profile
-
-    @property
-    def agent_config(self) -> AgentProfile:
-        """
-        Back-compat alias for agent_profile.
-        Deprecated: use self.agent_profile directly.
-        """
-        return self.agent_profile
+        self.agent_profile: AgentProfile = agent_profile
 
     @property
     def default_config(self) -> CallerConfig:

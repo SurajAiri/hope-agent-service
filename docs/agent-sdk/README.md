@@ -45,6 +45,7 @@ Agent                 — container for all agent components
   └─ ResumeCheck      — lifecycle hooks (optional)
 
 @tool / BaseTool      — define tools the LLM can call
-create_agent()        — convenience factory to build Agent with good defaults
-create_simple_agent() — minimal factory for quick prototypes
+Agent.create()        — convenience factory to build Agent with good defaults
+Agent.simple()        — minimal factory for quick prototypes
+LangGraphAgent.create() — factory for LangGraph StateGraph-backed agents (see 09-langgraph.md)
 ```

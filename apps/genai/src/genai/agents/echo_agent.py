@@ -26,7 +26,6 @@ from agent_sdk import (
     AgentContext,
     AgentProfile,
     AgentRunner,
-    create_agent,
 )
 from agent_sdk.caller_config import CallerConfig
 from agent_sdk.execution_step import ExecutionStep, StepContext, StepResult, StepStatus
@@ -241,7 +240,7 @@ def echo_agent_factory(agent_id: str) -> Agent:
     Developer factory function. Returns an Agent object.
     Called fresh on every trigger_session() — components are lightweight.
 
-    Demonstrates create_agent() with a custom runner override:
+    Demonstrates Agent(...) direct construction with a custom runner override:
     EchoAgentRunner is wired manually since it doesn't use LiteLLM.
     """
     logger.debug("echo_agent_factory: creating agent '{}'", agent_id)

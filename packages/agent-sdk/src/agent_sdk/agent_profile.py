@@ -18,10 +18,6 @@ Preset resolution:
       presets[slug] → fallback_llm → ValueError
 
   Typed slots take priority over same-key entries in presets.
-
-Migration from AgentConfig:
-  AgentConfig is an alias for AgentProfile (deprecated name, kept for one cycle).
-  Old code using AgentConfig continues to work without any changes.
 """
 from __future__ import annotations
 
@@ -183,9 +179,3 @@ class AgentProfile(BaseModel):
             f"or add '{slug}' to AgentProfile.presets."
         )
 
-
-# ---------------------------------------------------------------------------
-# Back-compat alias — deprecated, use AgentProfile.
-# AgentConfig will be removed in a future release.
-# ---------------------------------------------------------------------------
-AgentConfig = AgentProfile

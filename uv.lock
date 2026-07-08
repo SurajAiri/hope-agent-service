@@ -354,7 +354,7 @@ wheels = [
 
 [[package]]
 name = "engine"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/engine" }
 dependencies = [
     { name = "asyncpg" },
@@ -770,7 +770,7 @@ wheels = [
 
 [[package]]
 name = "hope-agent-sdk"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/agent-sdk" }
 dependencies = [
     { name = "loguru" },
@@ -2112,7 +2112,7 @@ wheels = [
 
 [[package]]
 name = "runner"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/runner" }
 dependencies = [
     { name = "asyncpg" },

@@ -6,20 +6,33 @@ Complete reference for all public classes and types in `agent_sdk`.
 
 ## Factories
 
-### `create_agent()`
+Factories are **classmethods on the agent classes themselves**, not module-level
+functions. `Agent.litellm()` is the lowest-level (full manual control),
+`Agent.create()` is the full-featured factory, and `Agent.simple()` is the
+minimal-boilerplate factory. `LangGraphAgent.create()` is the equivalent for
+LangGraph-backed agents.
+
+> The old module-level `create_agent()`, `create_simple_agent()`, and
+> `create_langgraph_agent()` functions still exist purely as deprecated
+> back-compat shims that call the classmethods below — nothing already
+> registered with `runner.register_agent()` breaks — but new code should use
+> the classmethods directly.
+
+### `Agent.create()`
 
 Full-featured agent factory. The recommended way to create agents.
 
 ```python
-from agent_sdk import create_agent
+from agent_sdk import Agent
 
-create_agent(
+Agent.create(
     agent_id: str,
     agent_profile: AgentProfile,
     *,
     tools: list[BaseTool] | None = None,
     execution_step: ExecutionStep | None = None,
     resume_check: ResumeCheck | None = None,
+    input_validator: InputValidator | None = None,
     parent_context: AgentContext | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Agent
@@ -32,19 +45,20 @@ create_agent(
 | `tools` | ❌ | `[]` | Tool instances available to the agent |
 | `execution_step` | ❌ | `DefaultExecutionStep()` | How the agent runs each run |
 | `resume_check` | ❌ | no-op `ResumeCheck` | Lifecycle hooks |
+| `input_validator` | ❌ | `PassthroughInputValidator()` | Validates/reshapes `TriggerParams.initial_state` on the first run |
 | `parent_context` | ❌ | `None` | Parent `AgentContext` for shared tools |
 | `metadata` | ❌ | `{}` | Free-form metadata dict |
 
 ---
 
-### `create_simple_agent()`
+### `Agent.simple()`
 
 Minimal factory. The only place in the SDK where `model` and `provider` are accepted directly.
 
 ```python
-from agent_sdk import create_simple_agent
+from agent_sdk import Agent
 
-create_simple_agent(
+Agent.simple(
     agent_id: str,
     model: str,
     provider: str,
@@ -54,19 +68,20 @@ create_simple_agent(
     max_runs: int = 50,
     temperature: float = 0.7,
     max_tokens: int = 4096,
+    input_validator: InputValidator | None = None,
 ) -> Agent
 ```
 
 ---
 
-### `create_langgraph_agent()`
+### `LangGraphAgent.create()`
 
 Factory for LangGraph `StateGraph`-backed agents (requires the `langgraph` extra). See [09 — LangGraph Support](09-langgraph.md) for the full guide.
 
 ```python
-from agent_sdk.langgraph import create_langgraph_agent
+from agent_sdk.langgraph import LangGraphAgent
 
-create_langgraph_agent(
+LangGraphAgent.create(
     agent_id: str,
     graph_builder: Callable[[], StateGraph],
     *,
@@ -76,7 +91,10 @@ create_langgraph_agent(
     tools: list[BaseTool] | None = None,
     input_adapter=..., output_adapter=..., new_messages_adapter=...,  # MessagesState-convention defaults
     resume_check: ResumeCheck | None = None,
-) -> Agent
+    input_validator: InputValidator | None = None,
+    parent_context: AgentContext | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> LangGraphAgent
 ```
 
 ---
@@ -140,9 +158,10 @@ from agent_sdk import Agent
 Agent(
     agent_id: str,
     runner: AgentRunner,
-    agent_context: AgentContext,
-    execution_step: ExecutionStep,
+    agent_context: AgentContext = AgentContext(tools=[]),
+    execution_step: ExecutionStep = DefaultExecutionStep(),
     resume_check: ResumeCheck | None = None,  # defaults to no-op
+    input_validator: InputValidator = PassthroughInputValidator(),
     metadata: dict[str, Any] = {},
 )
 ```
@@ -152,10 +171,11 @@ Agent(
 ```python
 Agent.litellm(
     agent_id: str,
-    agent_config: AgentProfile,
-    agent_context: AgentContext,
+    agent_profile: AgentProfile,
+    agent_context: AgentContext | None = None,
     execution_step: ExecutionStep | None = None,
     resume_check: ResumeCheck | None = None,
+    input_validator: InputValidator | None = None,
     metadata: dict | None = None,
 ) -> Agent
 ```
@@ -211,7 +231,7 @@ class MyRunner(AgentRunner):
 
 #### `LitellmAgentRunner`
 
-The built-in runner backed by LiteLLM. Used by `create_agent()` and `create_simple_agent()` automatically.
+The built-in runner backed by LiteLLM. Used by `Agent.create()` and `Agent.simple()` automatically.
 
 ```python
 from agent_sdk import LitellmAgentRunner
@@ -597,17 +617,21 @@ from agent_sdk import AgentConfigurationError
 
 ---
 
-## Deprecated
+## Removed
 
 ### `AgentConfig`
 
-Deprecated alias for `AgentProfile`. Will be removed in a future release.
+`AgentConfig` was a back-compat alias for `AgentProfile`. It has been **fully
+removed** (not just deprecated) — `from agent_sdk import AgentConfig` now
+raises `ImportError`. `agent_sdk.agent_config` still exists as a module, but
+only re-exports `AgentProfile`/`LlmConfig` from their canonical location and
+carries a migration note in its docstring.
 
 ```python
-# Old — still works but deprecated
+# No longer works — raises ImportError
 from agent_sdk import AgentConfig
 
-# New — preferred
+# Use this instead
 from agent_sdk import AgentProfile
 ```
 
@@ -618,4 +642,7 @@ Migration guide: `AgentConfig` → `AgentProfile`. Field renames:
 | `high_llm` | `default_llm` (or `strong_llm`) |
 | `low_llm` | `fast_llm` |
 | `mid_llm` | `presets={"mid": ...}` |
+| `coder_llm` | `presets={"coder": ...}` |
+| `summarizer_llm` | `presets={"summarizer": ...}` |
+| `memory_llm` | `presets={"memory": ...}` |
 | `extras` | `presets` |

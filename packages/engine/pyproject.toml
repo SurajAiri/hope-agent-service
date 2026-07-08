@@ -1,6 +1,6 @@
 [project]
 name = "engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Engine — core execution foundation (singleton)"
 readme = "README.md"
 authors = [{ name = "Suraj Airi", email = "surajairi.ml@gmail.com" }]

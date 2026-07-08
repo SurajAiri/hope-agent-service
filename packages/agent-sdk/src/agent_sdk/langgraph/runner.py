@@ -36,6 +36,7 @@ from typing import Any, AsyncIterator, Callable
 from agent_sdk.agent_profile import AgentProfile
 from agent_sdk.agent_runner.agent_runner import AgentRunner
 from agent_sdk.caller_config import CallerConfig
+from agent_sdk.hitl import HitlAction
 from agent_sdk.langgraph.checkpoint import (
     build_config,
     new_checkpointer,
@@ -81,6 +82,32 @@ def _json_safe(value: Any) -> Any:
         return value
     except TypeError:
         return json.loads(json.dumps(value, default=str))
+
+
+def _interrupt_to_hitl_action(intr: Any) -> dict[str, Any]:
+    """
+    Map a LangGraph Interrupt (id + arbitrary value from interrupt(...)) onto
+    the platform's HitlAction shape (agent_sdk.hitl.HitlAction).
+
+    Best-effort: interrupt() accepts any JSON-able payload, so this only
+    special-cases the common convention of calling
+    interrupt({"question": ..., "description": ..., "options": [...]}).
+    Anything else falls back to a generic question with the raw value tucked
+    into description so nothing is lost.
+    """
+    value = _json_safe(intr.value)
+    if isinstance(value, dict) and "question" in value:
+        return HitlAction(
+            id=intr.id,
+            question=str(value.get("question")),
+            description=value.get("description"),
+            options=value.get("options"),
+        ).model_dump()
+    return HitlAction(
+        id=intr.id,
+        question="Input required to continue",
+        description=str(value),
+    ).model_dump()
 
 
 class LangGraphAgentRunner(AgentRunner):
@@ -202,7 +229,7 @@ class LangGraphAgentRunner(AgentRunner):
 
         if interrupted:
             metadata["interrupt_actions"] = [
-                {"id": intr.id, "value": _json_safe(intr.value)} for intr in snapshot.interrupts
+                _interrupt_to_hitl_action(intr) for intr in snapshot.interrupts
             ]
             metadata[CHECKPOINT_STATE_KEY] = snapshot_checkpointer(checkpointer)
         else:

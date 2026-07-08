@@ -48,11 +48,11 @@ class MyResumeCheck(ResumeCheck):
         return all(task["completed"] for task in hitl_tasks)
 ```
 
-Pass your `ResumeCheck` to `create_agent()`:
+Pass your `ResumeCheck` to `Agent.create()`:
 
 ```python
 def my_factory(agent_id: str) -> Agent:
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=PROFILE,
         tools=[...],

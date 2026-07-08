@@ -1,35 +1,35 @@
 """
 agent_sdk.agent_config
 ~~~~~~~~~~~~~~~~~~~~~~
-DEPRECATED — use agent_sdk.agent_profile instead.
+REMOVED \u2014 use agent_sdk.agent_profile (AgentProfile) instead.
 
-This module is kept for one release cycle as a backward-compatibility shim.
-All symbols are re-exported from agent_sdk.agent_profile.
+This module previously contained the AgentConfig back-compat alias for
+AgentProfile.  That alias has now been removed.
 
 Migration:
     Old import                              New import
-    ─────────────────────────────────────── ────────────────────────────────────────
-    from agent_sdk.agent_config import AgentConfig   → from agent_sdk import AgentProfile
-    from agent_sdk.agent_config import LlmConfig     → from agent_sdk import LlmConfig
-    AgentConfig(agent_id=..., high_llm=...)          → AgentProfile(agent_id=..., default_llm=...)
+    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    from agent_sdk.agent_config import AgentConfig   \u2192 from agent_sdk import AgentProfile
+    from agent_sdk.agent_config import LlmConfig     \u2192 from agent_sdk import LlmConfig
+    AgentConfig(agent_id=..., high_llm=...)          \u2192 AgentProfile(agent_id=..., default_llm=...)
 
-Renamed presets (old → new):
-    high_llm       → default_llm  (or strong_llm for the most capable model)
-    low_llm        → fast_llm
-    mid_llm        → presets={"mid": LlmConfig(...)}
-    coder_llm      → presets={"coder": LlmConfig(...)}
-    summarizer_llm → presets={"summarizer": LlmConfig(...)}
-    memory_llm     → presets={"memory": LlmConfig(...)}
-    fallback_llm   → fallback_llm  (unchanged)
-    extras         → presets  (dict key stays the same)
+Renamed presets (old \u2192 new):
+    high_llm       \u2192 default_llm  (or strong_llm for the most capable model)
+    low_llm        \u2192 fast_llm
+    mid_llm        \u2192 presets={"mid": LlmConfig(...)}
+    coder_llm      \u2192 presets={"coder": LlmConfig(...)}
+    summarizer_llm \u2192 presets={"summarizer": LlmConfig(...)}
+    memory_llm     \u2192 presets={"memory": LlmConfig(...)}
+    fallback_llm   \u2192 fallback_llm  (unchanged)
+    extras         \u2192 presets  (dict key stays the same)
 """
 from __future__ import annotations
 
-# Re-export everything from the new canonical location.
-from agent_sdk.agent_profile import AgentConfig, AgentProfile, LlmConfig  # noqa: F401
+# Re-export AgentProfile and LlmConfig from the canonical location.
+# AgentConfig alias has been removed \u2014 use AgentProfile directly.
+from agent_sdk.agent_profile import AgentProfile, LlmConfig  # noqa: F401
 
 __all__ = [
-    "AgentConfig",   # deprecated alias → AgentProfile
     "AgentProfile",
     "LlmConfig",
 ]

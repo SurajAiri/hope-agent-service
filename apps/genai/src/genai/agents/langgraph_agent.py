@@ -2,7 +2,7 @@
 genai.agents.langgraph_agent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Demonstrates agent_sdk.langgraph — a LangGraph StateGraph wired into the
-platform through create_langgraph_agent(), including one human-in-the-loop
+platform through LangGraphAgent.create(), including one human-in-the-loop
 approval gate via LangGraph's interrupt().
 
 Flow:
@@ -29,8 +29,7 @@ from __future__ import annotations
 
 import os
 
-from agent_sdk import Agent
-from agent_sdk.langgraph import create_langgraph_agent
+from agent_sdk.langgraph import LangGraphAgent
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.types import interrupt
@@ -95,8 +94,8 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def langgraph_agent_factory(agent_id: str) -> Agent:
-    return create_langgraph_agent(
+def langgraph_agent_factory(agent_id: str) -> LangGraphAgent:
+    return LangGraphAgent.create(
         agent_id,
         graph_builder=build_graph,
         max_runs=10,

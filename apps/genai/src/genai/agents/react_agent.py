@@ -4,12 +4,12 @@ genai.agents.react_agent
 A ReAct agent that loops between LLM generation and tool execution.
 
 Demonstrates:
-  - create_agent(): full-featured factory with AgentProfile
+  - Agent.create(): full-featured factory with AgentProfile
   - ReActExecutionStep: built-in SDK step, no manual tool-loop code needed
   - Typed tool_calls via response.tool_calls (list[ToolCall]) — no json.loads
 """
 
-from agent_sdk import Agent, AgentProfile, LlmConfig, ReActExecutionStep, create_agent
+from agent_sdk import Agent, AgentProfile, LlmConfig, ReActExecutionStep
 
 # Import the demo tools from echo_agent
 from genai.agents.echo_agent import TimestampTool, UpperCaseTool
@@ -33,10 +33,10 @@ def react_agent_factory(agent_id: str) -> Agent:
     """
     Factory for the ReAct agent.
 
-    Uses create_agent() + ReActExecutionStep — no manual tool-loop code needed.
+    Uses Agent.create() + ReActExecutionStep — no manual tool-loop code needed.
     Tool schemas are passed to the LLM automatically by the runner (via ToolCaller).
     """
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=_REACT_PROFILE,
         tools=[UpperCaseTool(), TimestampTool()],

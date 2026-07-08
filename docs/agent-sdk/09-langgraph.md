@@ -10,7 +10,7 @@ Install: `pip install 'hope-agent-sdk[langgraph]'`
 
 ```python
 from langgraph.graph import StateGraph, MessagesState, START, END
-from agent_sdk.langgraph import create_langgraph_agent
+from agent_sdk.langgraph import LangGraphAgent
 
 def call_model(state: MessagesState) -> dict:
     # your own LLM call here — langchain chat model, litellm, whatever
@@ -24,8 +24,8 @@ def build_graph() -> StateGraph:
     g.add_edge("call_model", END)
     return g
 
-def my_factory(agent_id: str) -> Agent:
-    return create_langgraph_agent(agent_id, graph_builder=build_graph)
+def my_factory(agent_id: str) -> LangGraphAgent:
+    return LangGraphAgent.create(agent_id, graph_builder=build_graph)
 
 runner.register_agent("my-langgraph-agent", my_factory)
 ```
@@ -43,9 +43,13 @@ Same four components as any agent, just LangGraph-flavored versions of each:
 | Runner (the "caller") | `LitellmAgentRunner` | `LangGraphAgentRunner` |
 | Execution step | `ReActExecutionStep` | `LangGraphExecutionStep` |
 | Resume hooks | your `ResumeCheck` | `LangGraphResumeCheck` |
-| Factory | `create_agent()` | `create_langgraph_agent()` |
+| Factory | `Agent.create()` | `LangGraphAgent.create()` |
 
-`create_langgraph_agent()` wires all three together. Nothing in the Engine changed to support this beyond two small, generic fixes described below — the actual LangGraph-specific logic lives entirely in `agent_sdk.langgraph`.
+`LangGraphAgent.create()` wires all three together. Nothing in the Engine changed to support this beyond two small, generic fixes described below — the actual LangGraph-specific logic lives entirely in `agent_sdk.langgraph`.
+
+> The old module-level `create_langgraph_agent()` function still exists as a
+> deprecated back-compat shim that just calls `LangGraphAgent.create()` —
+> new code should call the classmethod directly.
 
 One call to `LangGraphExecutionStep.run()` drives one full LangGraph run — from the initial input (or a resume) through to completion or the next interrupt. There's no `CONTINUE` case: LangGraph's own Pregel loop already runs its internal supersteps in one `ainvoke`/`astream` call.
 
@@ -90,7 +94,7 @@ What happens under the hood:
 
 **V1 scope:** this assumes one interrupt is pending at a time (the common sequential-approval case). If your graph raises multiple parallel interrupts in the same superstep, subclass `LangGraphResumeCheck` and override `hitl_action()`/`resume_work()` to build the `{interrupt_id: value}` mapping `Command(resume=...)` needs for that case.
 
-The `fastapi-demo` app includes a working example: `apps/fastapi-demo/src/fastapi_demo/agents/langgraph_agent.py`, plus two demo endpoints (`GET`/`POST /session/{session_id}/hitl`) showing how an application layer reads and answers pending actions.
+The `fastapi-demo` app includes two working examples: `agents/langgraph_agent.py` (basic `MessagesState` chat agent) and `agents/langgraph_hitl_approval_agent.py` (custom `{query, decision, response}` state with a real approve/reject HITL branch), plus two demo endpoints (`GET`/`POST /session/{session_id}/hitl`) showing how an application layer reads and answers pending actions.
 
 ---
 
@@ -101,7 +105,7 @@ By default the wrapper assumes the common `MessagesState` convention — a `"mes
 If your graph's state schema is different, override the adapters:
 
 ```python
-create_langgraph_agent(
+LangGraphAgent.create(
     agent_id,
     graph_builder=build_graph,
     input_adapter=my_input_adapter,             # list[AnyMessage] -> dict
@@ -110,7 +114,7 @@ create_langgraph_agent(
 )
 ```
 
-See `agent_sdk/langgraph/messages.py` for the default implementations to use as a reference.
+See `agent_sdk/langgraph/messages.py` for the default implementations to use as a reference, and `apps/fastapi-demo/src/fastapi_demo/agents/langgraph_hitl_approval_agent.py` for a full worked example with a custom `{query, decision, response}` state (request → human approval → LLM call or rejection).
 
 ---
 

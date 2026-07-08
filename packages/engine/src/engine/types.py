@@ -112,6 +112,11 @@ class ExecutionState(BaseModel):
     # Checkpoint data (arbitrary agent state for resume)
     checkpoint_data: dict[str, Any] = Field(default_factory=dict)
 
+    # Raw initial_state as passed on TriggerParams (kept verbatim — Engine
+    # merges a copy of this into checkpoint_data on the first run only, see
+    # engine._run_resume_check). Read-only from the agent's perspective.
+    initial_state: dict[str, Any] = Field(default_factory=dict)
+
     # Result (set on completion)
     result: Any = None
     error: str | None = None
@@ -138,6 +143,7 @@ class ExecutionState(BaseModel):
                 if self.webhook_config else None
             ),
             "checkpoint_data": self.checkpoint_data,
+            "initial_state": self.initial_state,
             "result": self.result,
             "error": self.error,
             "created_at": self.created_at.isoformat(),
@@ -164,6 +170,7 @@ class ExecutionState(BaseModel):
             webhook=data.get("webhook", True),
             webhook_config=_webhook_config,
             checkpoint_data=data.get("checkpoint_data", {}),
+            initial_state=data.get("initial_state", {}),
             result=data.get("result"),
             error=data.get("error"),
         )
@@ -207,6 +214,15 @@ class TriggerParams(BaseModel):
 
     # Input
     messages: list[AnyMessage] = Field(default_factory=list)
+
+    # Arbitrary initial state for the agent (any shape the agent wants —
+    # e.g. domain fields a LangGraph state schema needs beyond `messages`,
+    # or config a plain-python agent wants available from run 1). Engine
+    # merges this into ExecutionState.checkpoint_data before the first
+    # run's resume_check.initial_work() hook fires — see engine.engine and
+    # agent_sdk.resume_check.ResumeCheck for the validator/parser pattern.
+    # Ignored on resume (checkpoint_data from the previous run wins).
+    initial_state: dict[str, Any] = Field(default_factory=dict)
 
     # I/O config
     stream: bool = False

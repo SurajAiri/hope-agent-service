@@ -16,7 +16,19 @@ export const runSchema = z.object({
     .min(1, "At least one message is required"),
   thread_id: z.string().optional(),
   session_id: z.string().optional(),
+  // Arbitrary first-run state for the agent — only consulted on the first
+  // run of a session (see agent_sdk.input_validator on the GenAI side).
+  initial_state: z.record(z.string(), z.unknown()).optional(),
   extras: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const hitlResponseSchema = z.array(z.record(z.string(), z.unknown()));
+/**
+ * Schema for submitting HITL (human-in-the-loop) responses.
+ * JUST the answer(s) — action_id + response — not the full action list.
+ */
+const hitlResponseItemSchema = z.object({
+  action_id: z.string().min(1, "action_id is required"),
+  response: z.unknown(),
+});
+
+export const hitlResponseSchema = z.array(hitlResponseItemSchema).min(1);

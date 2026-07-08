@@ -20,7 +20,7 @@ Usage::
     )
 
     # Use directly (no subclassing needed for standard LLM calls):
-    runner = LitellmAgentRunner(agent_config=profile)
+    runner = LitellmAgentRunner(agent_profile=profile)
 
     # Or subclass for custom prompt building / output parsing:
     class MyRunner(LitellmAgentRunner):
@@ -77,25 +77,24 @@ class LitellmAgentRunner(AgentRunner[LlmConfig]):
 
     Uses LiteLLM's native async API (acompletion) for true async I/O — no thread pool.
 
-    default_config resolves agent_config via default_slug (default: "high").
-    To call with a different preset, pass agent_config.get_config("low") directly.
+    default_config resolves agent_profile via default_slug (default: "default").
+    To call with a different preset, pass agent_profile.get_config("fast") directly.
 
     Args:
-        agent_config:    AgentConfig with LLM presets
-        default_slug:    Which LLM preset to use for default_config ("high", "low", "mid", etc.)
+        agent_profile:   AgentProfile with LLM presets
+        default_slug:    Which LLM preset to use for default_config ("default", "fast", "strong", etc.)
         litellm_kwargs:  Extra kwargs passed to every litellm.acompletion() call
                          (e.g. api_key, api_base, timeout, metadata, etc.)
     """
 
     def __init__(
         self,
-        agent_config: "AgentProfile | None" = None,
         default_slug: str = "default",
         *,
         agent_profile: "AgentProfile | None" = None,
         **litellm_kwargs: Any,
     ) -> None:
-        super().__init__(agent_config=agent_config, agent_profile=agent_profile)
+        super().__init__(agent_profile=agent_profile)
         self._default_slug = default_slug
         self._litellm_kwargs = litellm_kwargs
 

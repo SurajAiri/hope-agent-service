@@ -166,11 +166,13 @@ export default function AgentsPage() {
     try {
       const token = localStorage.getItem("token");
       const actionsList = Array.isArray(hitlActions) ? hitlActions : (hitlActions as any)?.actions || [];
-      
+
+      // GenAI now expects just the answer(s) — { action_id, response } —
+      // not the full action object. Engine looks up the stored action by id.
       const payload = actionsList.map((action: any, i: number) => {
         const actionKey = action.id || action.action_id || i;
         return {
-          ...action,
+          action_id: action.id || action.action_id,
           response: hitlInputs[actionKey] || ""
         };
       });

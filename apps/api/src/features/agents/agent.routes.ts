@@ -88,6 +88,9 @@ router.get("/", agentController.listAgents);
  *                 type: string
  *               webhook:
  *                 type: boolean
+ *               initial_state:
+ *                 type: object
+ *                 description: Arbitrary first-run state for the agent (consulted once, on the first run of a session only)
  *               extras:
  *                 type: object
  *     responses:
@@ -270,8 +273,10 @@ router.get("/session/:sessionId/hitl", agentController.getHitlActions);
  *   post:
  *     summary: Submit human responses to resume a paused HITL run
  *     description: |
- *       Send the full action list (from GET .../hitl) with 'response' fields
- *       filled in on the completed actions. This re-triggers the paused run.
+ *       Send JUST the answer(s) — action_id + response for whichever pending
+ *       action(s) a human just answered — not the full action list returned
+ *       by GET .../hitl. This re-triggers the paused run once every action
+ *       has a response.
  *     tags: [Agent Sessions]
  *     security:
  *       - bearerAuth: []
@@ -294,6 +299,12 @@ router.get("/session/:sessionId/hitl", agentController.getHitlActions);
  *             type: array
  *             items:
  *               type: object
+ *               required: [action_id, response]
+ *               properties:
+ *                 action_id:
+ *                   type: string
+ *                 response:
+ *                   description: The human's answer (free-text or one of the action's options)
  *     responses:
  *       200:
  *         description: HITL response recorded, run will resume

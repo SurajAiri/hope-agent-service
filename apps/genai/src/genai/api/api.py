@@ -31,8 +31,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+from agent_sdk.hitl import HitlResponseInput
 from agent_sdk.messages import parse_message
 from dotenv import load_dotenv
+from genai.agents.langgraph_hitl_approval_agent import (
+    langgraph_hitl_approval_agent_factory,
+)
 from engine.types import RunStatus, TriggerParams, WebhookConfig
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -185,6 +189,7 @@ async def lifespan(app: FastAPI):
     runner.register_agent("react", react_agent_factory)
     runner.register_agent("langgraph-approval", langgraph_agent_factory)
     runner.register_agent("my-agent", my_agent_factory)
+    runner.register_agent("langgraph", langgraph_hitl_approval_agent_factory)
 
     logger.info("{} ready | agents={}", settings.app_name, runner.list_agents())
     yield
@@ -282,6 +287,12 @@ class SessionRequest(BaseModel):
     # Pass a WebhookConfig to receive an async POST notification when the run completes.
     # If omitted (or None), no webhook is sent.
     webhook_config: WebhookConfig | None = Field(default=None)
+    # Arbitrary first-run state for the agent (e.g. domain fields a LangGraph
+    # state schema needs beyond `messages`, or config a plain-python agent
+    # wants from run 1). Only consulted on the first run of a session — see
+    # agent_sdk.agent.BaseAgent.validate_input / agent_sdk.input_validator
+    # and engine._run_resume_check. Ignored on resume.
+    initial_state: dict[str, Any] = Field(default_factory=dict)
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -331,6 +342,7 @@ def _build_params(req: SessionRequest, stream: bool) -> TriggerParams:
         thread_id=req.thread_id,
         session_id=req.session_id,
         messages=messages,
+        initial_state=req.initial_state,
         stream=stream,
         webhook=req.webhook,
         webhook_config=req.webhook_config,
@@ -542,7 +554,9 @@ async def get_run_result(session_id: str):
 async def get_hitl_actions(session_id: str):
     """
     List pending human-in-the-loop actions for a paused (status == "hitl") run.
-    Each action looks like {"id": ..., "value": {...}, "response": ... | None}.
+    Each action is agent_sdk.hitl.HitlAction:
+      {"id": ..., "question": ..., "description": ... | None,
+       "options": [...] | None, "response": ... | None}.
 
     Gated on the run's *live* status, not just on what's stored in Redis.
     The stored action list is a full-replace, not a queue — once a run
@@ -572,13 +586,14 @@ async def get_hitl_actions(session_id: str):
 
 
 @router.post("/session/{session_id}/hitl", tags=["Agent Session"])
-async def submit_hitl_actions(session_id: str, actions: list[dict[str, Any]]):
+async def submit_hitl_actions(session_id: str, responses: list[HitlResponseInput]):
     """
     Attach human responses to a paused run and re-trigger it.
 
-    Body: the full action list (as returned by GET .../hitl) with a
-    `response` field filled in on whichever action(s) a human just answered.
-    This replaces the stored action list — send the complete list, not a diff.
+    Body: JUST the answer(s) — action_id + response for whichever pending
+    action(s) a human just answered (agent_sdk.hitl.HitlResponseInput), NOT
+    the full action list. Engine loads the stored actions and merges each
+    response in by id; unknown action_ids are ignored (logged, not raised).
 
     Once every action has a response, the next POST /call (or /call/sync,
     /call/stream) with the same session_id resumes the run.
@@ -587,7 +602,7 @@ async def submit_hitl_actions(session_id: str, actions: list[dict[str, Any]]):
     if r._engine is None:
         raise HTTPException(status_code=503, detail="Engine not initialized")
 
-    await r._engine.submit_hitl_response(session_id, actions)
+    await r._engine.submit_hitl_response(session_id, responses)
     return JSONResponse({"session_id": session_id, "status": "recorded"})
 
 

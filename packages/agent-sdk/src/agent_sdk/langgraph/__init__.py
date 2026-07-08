@@ -13,7 +13,7 @@ Install with: pip install 'hope-agent-sdk[langgraph]'
 Quick start::
 
     from langgraph.graph import StateGraph, MessagesState, START, END
-    from agent_sdk.langgraph import create_langgraph_agent
+    from agent_sdk.langgraph import LangGraphAgent
 
     def build_graph() -> StateGraph:
         g = StateGraph(MessagesState)
@@ -22,8 +22,10 @@ Quick start::
         g.add_edge("call_model", END)
         return g
 
-    def my_factory(agent_id: str) -> Agent:
-        return create_langgraph_agent(agent_id, graph_builder=build_graph)
+    def my_factory(agent_id: str) -> LangGraphAgent:
+        return LangGraphAgent.create(agent_id, graph_builder=build_graph)
+
+(create_langgraph_agent() still works — deprecated shim for LangGraphAgent.create())
 
 Nothing in this package imports langgraph/langchain-core at module level —
 only calling into a graph (i.e. actually running an agent) requires them to
@@ -33,13 +35,14 @@ See docs/agent-sdk/09-langgraph.md for the full guide, including HITL.
 """
 from __future__ import annotations
 
-from agent_sdk.langgraph.agent import create_langgraph_agent
+from agent_sdk.langgraph.agent import LangGraphAgent, create_langgraph_agent
 from agent_sdk.langgraph.execution_step import LangGraphExecutionStep
 from agent_sdk.langgraph.resume_check import LangGraphResumeCheck
 from agent_sdk.langgraph.runner import LangGraphAgentRunner
 
 __all__ = [
-    "create_langgraph_agent",
+    "LangGraphAgent",
+    "create_langgraph_agent",  # deprecated — use LangGraphAgent.create()
     "LangGraphAgentRunner",
     "LangGraphExecutionStep",
     "LangGraphResumeCheck",

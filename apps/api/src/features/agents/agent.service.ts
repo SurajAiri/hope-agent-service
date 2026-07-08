@@ -223,15 +223,17 @@ export class AgentService {
 
   /**
    * Submit human responses for a paused run and re-trigger execution.
+   * Body is just the answer(s): [{ action_id, response }, ...] — not the
+   * full action list.
    * POST /api/v1/session/:sessionId/hitl
    */
-  async submitHitlResponse(sessionId: string, actions: object[]) {
+  async submitHitlResponse(sessionId: string, responses: object[]) {
     const response = await safeFetch(
       `${GENAI_SERVICE_URL}/api/v1/session/${encodeURIComponent(sessionId)}/hitl`,
       {
         method: "POST",
         headers: getInternalHeaders(),
-        body: JSON.stringify(actions),
+        body: JSON.stringify(responses),
       },
     );
     if (!response.ok) {

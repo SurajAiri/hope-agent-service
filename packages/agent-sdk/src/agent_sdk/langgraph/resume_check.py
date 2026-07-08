@@ -42,14 +42,15 @@ class LangGraphResumeCheck(ResumeCheck):
     hitl_action()/resume_work() for custom HITL answer shapes.
     """
 
-    def hitl_action(self, state: RunState) -> bool:
+    async def hitl_action(self, state: RunState) -> bool:
         """
         True once every pending interrupt action has a `response` attached.
 
         state.checkpoint_data["hitl_actions"] is populated by Engine from
         whatever was stored via Engine.submit_hitl_response() (or the
-        initial pause) — each entry looks like:
-            {"id": "...", "value": {...}, "response": ... | None}
+        initial pause) — each entry looks like the HitlAction shape:
+            {"id": "...", "question": "...", "description": ... | None,
+             "options": [...] | None, "response": ... | None}
         """
         actions: list[dict[str, Any]] = state.checkpoint_data.get("hitl_actions") or []
         if not actions:
@@ -58,7 +59,7 @@ class LangGraphResumeCheck(ResumeCheck):
             return True
         return all(action.get("response") is not None for action in actions)
 
-    def resume_work(self, state: RunState) -> None:
+    async def resume_work(self, state: RunState) -> None:
         """
         Pull the (single, V1) human response out of hitl_actions and stash
         it under RESUME_VALUE_KEY so LangGraphAgentRunner can pass it to

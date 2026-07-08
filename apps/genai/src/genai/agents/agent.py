@@ -1,7 +1,6 @@
 from typing import Literal, NotRequired, TypedDict
 
-from agent_sdk import Agent
-from agent_sdk.langgraph import create_langgraph_agent
+from agent_sdk.langgraph import LangGraphAgent
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 from litellm import completion
@@ -90,8 +89,8 @@ def build_graph():
     return graph
 
 
-def my_agent_factory(agent_id: str) -> Agent:
-    return create_langgraph_agent(
+def my_agent_factory(agent_id: str) -> LangGraphAgent:
+    return LangGraphAgent.create(
         agent_id=agent_id,
         graph_builder=build_graph,
         max_runs=10,

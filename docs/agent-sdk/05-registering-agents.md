@@ -95,10 +95,10 @@ Shared tools are resolved via the parent-chain in `AgentContext`. Agent-specific
 ### Simplest possible factory
 
 ```python
-from agent_sdk import Agent, create_simple_agent
+from agent_sdk import Agent
 
 def echo_factory(agent_id: str) -> Agent:
-    return create_simple_agent(
+    return Agent.simple(
         agent_id,
         model="gpt-4o-mini",
         provider="openai",
@@ -111,7 +111,7 @@ runner.register_agent("echo", echo_factory)
 ### Full-featured factory
 
 ```python
-from agent_sdk import Agent, AgentProfile, LlmConfig, ReActExecutionStep, create_agent
+from agent_sdk import Agent, AgentProfile, LlmConfig, ReActExecutionStep
 
 PROFILE = AgentProfile(
     agent_id="research-agent",
@@ -123,7 +123,7 @@ PROFILE = AgentProfile(
 )
 
 def research_agent_factory(agent_id: str) -> Agent:
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=PROFILE,
         tools=[WebSearchTool(), WikipediaTool(), CalcTool()],

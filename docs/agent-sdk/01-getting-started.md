@@ -9,14 +9,14 @@ This guide walks you from zero to a registered, running agent in a few minutes.
 The `agent-sdk` package is infrastructure-agnostic. Install it with the LiteLLM extra to get access to 100+ LLM providers:
 
 ```bash
-pip install agent-sdk[litellm]
+pip install "hope-agent-sdk[litellm]"
 ```
 
 Or with uv (recommended for workspace-based projects):
 
 ```bash
-uv add agent-sdk
-uv add "agent-sdk[litellm]"
+uv add hope-agent-sdk
+uv add "hope-agent-sdk[litellm]"
 ```
 
 > **Note:** `litellm` is only needed if you are using `LitellmAgentRunner` (the default runner). If you build a completely custom `AgentRunner`, the base `agent-sdk` has no LLM dependencies.
@@ -27,15 +27,15 @@ uv add "agent-sdk[litellm]"
 
 Every agent is registered via a **factory function** — a callable `(agent_id: str) -> Agent`. The platform calls your factory fresh for each run.
 
-### Option 1: Minimum boilerplate (`create_simple_agent`)
+### Option 1: Minimum boilerplate (`Agent.simple()`)
 
-Use `create_simple_agent` when you just want a plain single-turn LLM agent with no tools and no special configuration.
+Use `Agent.simple()` when you just want a plain single-turn LLM agent with no tools and no special configuration.
 
 ```python
-from agent_sdk import Agent, create_simple_agent
+from agent_sdk import Agent
 
 def my_agent_factory(agent_id: str) -> Agent:
-    return create_simple_agent(
+    return Agent.simple(
         agent_id,
         model="gpt-4o",
         provider="openai",
@@ -43,13 +43,15 @@ def my_agent_factory(agent_id: str) -> Agent:
     )
 ```
 
-`create_simple_agent` is the **only** place in the SDK where `model` and `provider` are accepted directly. Internally it wraps them in an `AgentProfile` with a single `fallback_llm`.
+`Agent.simple()` is the **only** place in the SDK where `model` and `provider` are accepted directly. Internally it wraps them in an `AgentProfile` with a single `fallback_llm`.
+
+> Factories live on the class as classmethods (`Agent.litellm()` / `Agent.create()` / `Agent.simple()`). The old module-level `create_agent()` / `create_simple_agent()` functions still exist as deprecated shims for back-compat, but new code should use the classmethods above.
 
 ---
 
-### Option 2: Full control (`create_agent`)
+### Option 2: Full control (`Agent.create()`)
 
-Use `create_agent` when you need:
+Use `Agent.create()` when you need:
 
 - Multiple LLM configurations (default, fast, strong)
 - Custom tools
@@ -62,7 +64,6 @@ from agent_sdk import (
     AgentProfile,
     LlmConfig,
     ReActExecutionStep,
-    create_agent,
     tool,
 )
 from typing import Annotated
@@ -85,7 +86,7 @@ PROFILE = AgentProfile(
 
 # --- Factory function ---
 def my_agent_factory(agent_id: str) -> Agent:
-    return create_agent(
+    return Agent.create(
         agent_id,
         agent_profile=PROFILE,
         tools=[web_search],

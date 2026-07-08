@@ -15,7 +15,8 @@ Key design rules (non-negotiable):
 
 Execution flow (from arch):
   trigger_session(params, agent) →
-    resume check (status → hitl | queue/created | resume) →
+    resume check (status → hitl | queue/created [agent.validate_input() fires here,
+      first run only — see agent_sdk.agent.BaseAgent] | resume) →
     execution loop (bill check → interrupt check → ExecutionStep.run → checkpoint) →
     post execution (error or status set) →
     dump data (redis → s3, metadata on db) →
@@ -60,6 +61,7 @@ from typing import Any, AsyncIterator
 import redis.asyncio as aioredis
 from agent_sdk.agent import Agent
 from agent_sdk.execution_step import StepContext, StepStatus
+from agent_sdk.hitl import HitlResponseInput
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -228,6 +230,7 @@ class Engine:
             idem_key=params.idem_key,
             agent_id=params.agent_id,
             messages=list(params.messages),
+            initial_state=dict(params.initial_state),
             stream=params.stream,
             webhook=params.webhook,
             webhook_config=params.webhook_config,
@@ -261,6 +264,23 @@ class Engine:
         # --- RESUME CHECK ---
         should_run = await self._run_resume_check(state, agent)
         if not should_run:
+            if state.status == RunStatus.FAIL:
+                # A resume_check hook (e.g. an initial_state validator)
+                # raised — see _run_resume_check. Treat exactly like an
+                # execution-loop failure: alert already logged there, so
+                # just make sure this terminal state is persisted and
+                # webhooked like any other FAIL.
+                logger.warning(
+                    "Engine: resume_check failed | session={} error={}",
+                    state.session_id,
+                    state.error,
+                )
+                await self._execution_manager.set_status(state.session_id, state.status)
+                await self._execution_manager.dump_data(state)
+                self._bill_manager.release(state.session_id)
+                if params.webhook:
+                    await self._dispatch_webhooks(state)
+                return state
             if state.status == RunStatus.HITL:
                 # HITL can wait hours or days — far beyond Redis TTL.
                 # Dump state to DB + S3 now so it survives expiry and can be restored.
@@ -270,7 +290,7 @@ class Engine:
                 )
                 await self._execution_manager.dump_data(state)
             else:
-                # DONE or FAIL — already completed, don't re-dump.
+                # DONE — already completed, don't re-dump.
                 logger.info(
                     "Engine: session={} already {} — skipping re-run",
                     state.session_id,
@@ -342,6 +362,14 @@ class Engine:
         Execute resume check logic. Engine owns this control flow.
         agent.resume_check hooks are called here — Engine decides what to do with return values.
 
+        All hooks are async and awaited here. If any hook raises (e.g. a
+        developer's initial_work() validating TriggerParams.initial_state
+        against a required schema and rejecting it), that's caught, the run
+        is set to RunStatus.FAIL with the error message, and this returns
+        False — the caller (_trigger_session_locked) persists that FAIL
+        exactly like an execution-loop failure instead of letting the
+        exception escape trigger_session() uncaught.
+
         Returns True if the execution loop should run, False if it should be skipped.
         """
         resume_check = agent.resume_check
@@ -354,64 +382,94 @@ class Engine:
             current_status.value,
         )
 
-        if current_status == RunStatus.HITL:
-            hitl_actions = await self._execution_manager.load_hitl_actions(
-                state.session_id
-            )
-            state.checkpoint_data["hitl_actions"] = hitl_actions
-            completed = resume_check.hitl_action(state)
-            if not completed:
+        try:
+            if current_status == RunStatus.HITL:
+                hitl_actions = await self._execution_manager.load_hitl_actions(
+                    state.session_id
+                )
+                state.checkpoint_data["hitl_actions"] = hitl_actions
+                completed = await resume_check.hitl_action(state)
+                if not completed:
+                    logger.info(
+                        "Engine: HITL pending | session={} — loop skipped",
+                        state.session_id,
+                    )
+                    return False  # WIP never set, loop won't run
+
+            if current_status in (RunStatus.QUEUE, RunStatus.CREATED):
+                logger.info("Engine: first run | session={}", state.session_id)
+                # agent.validate_input() is the ONE seam for validating/
+                # reshaping the caller-supplied initial_state (see
+                # agent_sdk.agent.BaseAgent.validate_input and
+                # agent_sdk.input_validator). Runs BEFORE anything touches
+                # checkpoint_data and BEFORE resume_check.initial_work() —
+                # initial_work stays a general first-run hook (loading
+                # thread history, etc.), not a validator; it now just
+                # receives already-validated data instead of the raw
+                # payload. A raise here (e.g. pydantic ValidationError) is
+                # caught by the except block below, same as any other
+                # resume-check hook failure.
+                validated_state = await agent.validate_input(
+                    state.messages, state.initial_state
+                )
+                if validated_state:
+                    state.checkpoint_data.update(validated_state)
+                await resume_check.initial_work(state)
+
+            elif current_status not in (RunStatus.DONE):
+                # Resuming from interrupt/checkpoint
                 logger.info(
-                    "Engine: HITL pending | session={} — loop skipped", state.session_id
-                )
-                return False  # WIP never set, loop won't run
-
-        if current_status in (RunStatus.QUEUE, RunStatus.CREATED):
-            logger.info("Engine: first run | session={}", state.session_id)
-            resume_check.initial_work(state)
-
-        elif current_status not in (RunStatus.DONE):
-            # Resuming from interrupt/checkpoint
-            logger.info(
-                "Engine: resuming | session={} from_status={}",
-                state.session_id,
-                current_status.value,
-            )
-            restored = await self._execution_manager.checkpoint_restore(
-                state.session_id
-            )
-            if restored is not None:
-                state.messages = restored.messages
-                state.run_id = restored.run_id
-                # BUGFIX: restored.checkpoint_data is a stale snapshot captured
-                # at the moment the run paused — BEFORE any human response
-                # existed. If we just fell through from the HITL branch above,
-                # state.checkpoint_data["hitl_actions"] holds the freshly
-                # loaded (possibly now-answered) actions; overwriting
-                # checkpoint_data wholesale would silently throw that away and
-                # hand the agent back its old, unanswered action list. Preserve it.
-                _pending_hitl_actions = state.checkpoint_data.get("hitl_actions")
-                state.checkpoint_data = restored.checkpoint_data
-                if _pending_hitl_actions is not None:
-                    state.checkpoint_data["hitl_actions"] = _pending_hitl_actions
-                logger.debug(
-                    "Engine: checkpoint restored | session={} iter={}",
+                    "Engine: resuming | session={} from_status={}",
                     state.session_id,
-                    state.run_id,
+                    current_status.value,
                 )
-            resume_check.resume_work(state)
+                restored = await self._execution_manager.checkpoint_restore(
+                    state.session_id
+                )
+                if restored is not None:
+                    state.messages = restored.messages
+                    state.run_id = restored.run_id
+                    # BUGFIX: restored.checkpoint_data is a stale snapshot captured
+                    # at the moment the run paused — BEFORE any human response
+                    # existed. If we just fell through from the HITL branch above,
+                    # state.checkpoint_data["hitl_actions"] holds the freshly
+                    # loaded (possibly now-answered) actions; overwriting
+                    # checkpoint_data wholesale would silently throw that away and
+                    # hand the agent back its old, unanswered action list. Preserve it.
+                    _pending_hitl_actions = state.checkpoint_data.get("hitl_actions")
+                    state.checkpoint_data = restored.checkpoint_data
+                    if _pending_hitl_actions is not None:
+                        state.checkpoint_data["hitl_actions"] = _pending_hitl_actions
+                    logger.debug(
+                        "Engine: checkpoint restored | session={} iter={}",
+                        state.session_id,
+                        state.run_id,
+                    )
+                await resume_check.resume_work(state)
 
-        # Already done — do not re-run
-        if current_status in (RunStatus.DONE):
-            logger.info(
-                "Engine: session={} already {} — skipping re-run",
-                state.session_id,
-                current_status.value,
+            # Already done — do not re-run
+            if current_status in (RunStatus.DONE):
+                logger.info(
+                    "Engine: session={} already {} — skipping re-run",
+                    state.session_id,
+                    current_status.value,
+                )
+                return False
+
+            # Unconditional pre-loop hook (fires on first run AND resume)
+            await resume_check.before_run(state)
+        except Exception as error:
+            alert_ctx = AlertContext(
+                org_id=state.org_id,
+                thread_id=state.thread_id,
+                session_id=state.session_id,
+                agent_id=state.agent_id,
+                run_id=state.run_id,
             )
+            self._error_handler.alert(error, alert_ctx)
+            state.status = RunStatus.FAIL
+            state.error = f"resume_check hook failed: {error}"
             return False
-
-        # Unconditional pre-loop hook (fires on first run AND resume)
-        resume_check.before_run(state)
 
         # Engine sets WIP AFTER before_run returns
         state.status = RunStatus.WIP
@@ -594,20 +652,37 @@ class Engine:
     # HITL — public entry point for the application layer
     # ------------------------------------------------------------------
 
-    async def submit_hitl_response(self, session_id: str, actions: list[dict]) -> None:
+    async def submit_hitl_response(
+        self, session_id: str, responses: list[HitlResponseInput]
+    ) -> None:
         """
         Attach human responses to a paused (RunStatus.HITL) run.
 
-        `actions` should be the full action list for this session (typically
-        what your app read via GET/poll, with a `response` field filled in on
-        the ones a human just answered) — this replaces the stored list, it
-        does not merge.
+        `responses` is just the answer(s): action_id + response for whichever
+        action(s) a human just answered (agent_sdk.hitl.HitlResponseInput) —
+        NOT the full action list. Engine loads the currently-stored actions,
+        matches each response to its action by id, and attaches `response` —
+        every other field (question/description/options) and every
+        not-yet-answered action is left untouched. Unknown action_ids are
+        ignored (logged, not raised — a stale/duplicate submit shouldn't 500).
 
         After calling this, re-trigger the same session_id: Engine's resume
         check calls agent.resume_check.hitl_action(state) to decide whether
         every action now has a response and, if so, proceeds into
         resume_check.resume_work(state) → the execution loop.
         """
+        actions = await self._execution_manager.load_hitl_actions(session_id)
+        by_id = {a.get("id"): a for a in actions}
+        for r in responses:
+            action = by_id.get(r.action_id)
+            if action is None:
+                logger.warning(
+                    "Engine: submit_hitl_response — unknown action_id={} for session={}, ignored",
+                    r.action_id,
+                    session_id,
+                )
+                continue
+            action["response"] = r.response
         await self._execution_manager.store_hitl_actions(session_id, actions)
 
     # ------------------------------------------------------------------
