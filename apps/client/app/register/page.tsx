@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -21,6 +21,16 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   });
+  const checked = useRef(false);
+
+  // Already logged in → go straight to dashboard
+  useEffect(() => {
+    if (checked.current) return;
+    checked.current = true;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) router.replace("/dashboard");
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

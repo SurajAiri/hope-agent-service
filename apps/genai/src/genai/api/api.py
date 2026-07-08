@@ -47,7 +47,8 @@ from runner.runner import Runner
 from runner.streamer import SSEStreamer
 from sse_starlette.sse import EventSourceResponse
 
-from genai.agents import echo_agent_factory
+from genai.agents import echo_agent_factory, langgraph_litellm_agent_factory
+from genai.agents.agent import my_agent_factory
 from genai.api.auth import verify_api_key
 from genai.config import settings
 
@@ -183,6 +184,7 @@ async def lifespan(app: FastAPI):
     runner.register_agent("simple", simple_agent_factory)
     runner.register_agent("react", react_agent_factory)
     runner.register_agent("langgraph-approval", langgraph_agent_factory)
+    runner.register_agent("my-agent", my_agent_factory)
 
     logger.info("{} ready | agents={}", settings.app_name, runner.list_agents())
     yield

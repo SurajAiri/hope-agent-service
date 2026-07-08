@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -78,24 +79,18 @@ function formatTime(iso: string) {
 // ── Row ─────────────────────────────────────────────────────────────────────
 
 function TraceRow({ trace }: { trace: RunTrace }) {
-  const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   const meta = STATUS_META[trace.status] ?? STATUS_META.done;
   const Icon = meta.icon;
-
-  const copyJSON = (v: any) => {
-    navigator.clipboard.writeText(JSON.stringify(v, null, 2));
-    toast.success("Copied to clipboard");
-  };
 
   return (
     <div
       className="rounded-xl overflow-hidden transition-all"
       style={{ background: "oklch(1 0 0 / 3%)", border: "1px solid oklch(1 0 0 / 7%)" }}
     >
-      {/* Summary row */}
       <button
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
-        onClick={() => setExpanded((p) => !p)}
+        onClick={() => router.push(`/dashboard/traces/${trace.id}`)}
       >
         {/* Status */}
         <span
@@ -143,91 +138,9 @@ function TraceRow({ trace }: { trace: RunTrace }) {
           {formatTime(trace.createdAt)}
         </span>
 
-        {/* Expand chevron */}
-        {expanded
-          ? <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" />
-          : <ChevronRight className="h-3.5 w-3.5 text-white/40 shrink-0" />}
+        <ChevronRight className="h-3.5 w-3.5 text-white/40 shrink-0 ml-2" />
       </button>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-white/[0.05] px-4 py-4 space-y-4">
-          {/* Meta row */}
-          <div className="flex flex-wrap gap-4 text-[11px] text-white/60 font-mono">
-            <span>ID: <span className="text-white/60">{trace.id}</span></span>
-            {trace.sessionId && (
-              <span>Session: <span className="text-white/60">{trace.sessionId}</span></span>
-            )}
-            {trace.threadId && (
-              <span>Thread: <span className="text-white/60">{trace.threadId}</span></span>
-            )}
-            <span>
-              Status:{" "}
-              <span className={meta.color + " font-semibold capitalize"}>{trace.status}</span>
-            </span>
-          </div>
-
-          {/* Error */}
-          {trace.error && (
-            <div
-              className="rounded-lg px-3 py-2 text-xs text-red-400 font-mono"
-              style={{ background: "oklch(0.55 0.22 25 / 10%)" }}
-            >
-              {trace.error}
-            </div>
-          )}
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Input */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Input</p>
-                <Button
-                  variant="ghost" size="icon"
-                  className="h-5 w-5 text-white/40 hover:text-white"
-                  onClick={() => copyJSON(trace.input)}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-              <div
-                className="max-h-48 overflow-auto rounded-lg p-3"
-                style={{ background: "oklch(0.04 0.008 268)" }}
-              >
-                <pre className="text-[11px] font-mono text-emerald-400/70 whitespace-pre-wrap">
-                  {JSON.stringify(trace.input, null, 2)}
-                </pre>
-              </div>
-            </div>
-
-            {/* Output */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Output</p>
-                {trace.output && (
-                  <Button
-                    variant="ghost" size="icon"
-                    className="h-5 w-5 text-white/40 hover:text-white"
-                    onClick={() => copyJSON(trace.output)}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <div
-                className="max-h-48 overflow-auto rounded-lg p-3"
-                style={{ background: "oklch(0.04 0.008 268)" }}
-              >
-                <pre className="text-[11px] font-mono text-blue-400/70 whitespace-pre-wrap">
-                  {trace.output
-                    ? JSON.stringify(trace.output, null, 2)
-                    : "// no output yet"}
-                </pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

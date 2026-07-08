@@ -109,7 +109,7 @@ router.delete(
 );
 
 router.patch(
-  "/:userId/role",
+  "/:userId",
   requireOrganizationRole(["owner", "admin"]),
   membershipController.updateRole,
 );

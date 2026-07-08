@@ -31,6 +31,7 @@ import {
   Terminal,
   Zap,
   FlaskConical,
+  Pause,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -75,12 +76,18 @@ export default function AgentsPage() {
   const [genaiError, setGenaiError] = useState<string | null>(null);
 
   // Playground state
+  const [activeTab, setActiveTab] = useState("agents");
   const [selectedAgent, setSelectedAgent] = useState("");
   const [message, setMessage] = useState("Hello! What can you do?");
   const [threadId, setThreadId] = useState("");
-  const [runMode, setRunMode] = useState<"sync" | "async">("sync");
+  const [runMode, setRunMode] = useState<"sync" | "async" | "stream">("sync");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
+  const [outputView, setOutputView] = useState<"gui" | "json">("gui");
+  
+  // HITL state
+  const [hitlActions, setHitlActions] = useState<any[]>([]);
+  const [hitlInputs, setHitlInputs] = useState<Record<string, string>>({});
 
   const fetchAgents = useCallback(async () => {
     if (!selectedOrgId) return;
@@ -115,17 +122,103 @@ export default function AgentsPage() {
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
-  const handleRun = async () => {
-    if (!selectedOrgId || !selectedAgent || !message.trim()) return;
+  const pollSession = async (sessionId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/organizations/${selectedOrgId}/agents/session/${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.data) {
+        setResult(data.data);
+        if (data.data.status === "hitl") {
+          fetchHitlActions(sessionId);
+        } else if (data.data.status === "queued" || data.data.status === "running") {
+          setTimeout(() => pollSession(sessionId), 1500);
+        } else {
+          setRunning(false);
+        }
+      }
+    } catch (e) {
+      setRunning(false);
+    }
+  };
+
+  const fetchHitlActions = async (sessionId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/organizations/${selectedOrgId}/agents/session/${sessionId}/hitl`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.data) {
+        setHitlActions(data.data);
+        setRunning(false);
+      }
+    } catch (e) {
+      toast.error("Failed to fetch HITL actions");
+    }
+  };
+
+  const submitHitl = async () => {
+    if (!result?.session_id) return;
     setRunning(true);
-    setResult(null);
+    try {
+      const token = localStorage.getItem("token");
+      const actionsList = Array.isArray(hitlActions) ? hitlActions : (hitlActions as any)?.actions || [];
+      
+      const payload = actionsList.map((action: any, i: number) => {
+        const actionKey = action.id || action.action_id || i;
+        return {
+          ...action,
+          response: hitlInputs[actionKey] || ""
+        };
+      });
+
+      const res = await fetch(`${API_BASE}/organizations/${selectedOrgId}/agents/session/${result.session_id}/hitl`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        toast.success("Response submitted");
+        setHitlActions([]);
+        setHitlInputs({});
+        // Resume by re-triggering run with session_id
+        handleRun(result.session_id);
+      } else {
+        toast.error("Failed to submit HITL response");
+        setRunning(false);
+      }
+    } catch (e) {
+      toast.error("Failed to submit");
+      setRunning(false);
+    }
+  };
+
+  const handleRun = async (resumeSessionIdArg?: string | React.MouseEvent) => {
+    if (!selectedOrgId || !selectedAgent || !message.trim()) return;
+    
+    const resumeSessionId = typeof resumeSessionIdArg === 'string' ? resumeSessionIdArg : undefined;
+    
+    setRunning(true);
+    if (!resumeSessionId) {
+      setResult(null);
+    }
+    setHitlActions([]);
+    setHitlInputs({});
 
     const token = localStorage.getItem("token");
-    const endpoint = runMode === "sync" ? "run/sync" : "run";
+    const endpoint = runMode === "sync" ? "run/sync" : runMode === "stream" ? "run/stream" : "run";
     const body = {
       agent_id: selectedAgent,
       messages: [{ role: "user", content: message.trim() }],
       ...(threadId.trim() ? { thread_id: threadId.trim() } : {}),
+      ...(resumeSessionId ? { session_id: resumeSessionId } : {}),
     };
 
     try {
@@ -140,15 +233,96 @@ export default function AgentsPage() {
           body: JSON.stringify(body),
         },
       );
+      
+      if (runMode === "stream") {
+        if (!res.ok) {
+          const data = await res.json();
+          toast.error(data.message || "Run failed");
+          setRunning(false);
+          return;
+        }
+        
+        if (!resumeSessionId) {
+          setResult({ session_id: "streaming", status: "running", result: { output: "" } });
+        } else {
+          setResult(prev => prev ? { ...prev, status: "running" } : null);
+        }
+        
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        // Preserve previous output if resuming stream
+        let fullContent = resumeSessionId && result?.result?.output 
+          ? typeof result.result.output === 'string' ? result.result.output : "" 
+          : "";
+          
+        let buffer = "";
+        
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+            
+            for (const event of events) {
+              const lines = event.split('\n');
+              let eventType = 'message';
+              let dataStr = '';
+              for (const line of lines) {
+                if (line.startsWith('event:')) {
+                  eventType = line.slice(6).trim();
+                } else if (line.startsWith('data:')) {
+                  dataStr = line.slice(5).trim();
+                }
+              }
+              
+              if (eventType === 'done' || dataStr === '[DONE]') {
+                break;
+              } else if (dataStr) {
+                try {
+                  const dataObj = JSON.parse(dataStr);
+                  if (dataObj.content) {
+                    fullContent += dataObj.content;
+                    setResult(prev => prev ? { ...prev, result: { output: fullContent } } : null);
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+        setResult(prev => prev ? { ...prev, status: "done" } : null);
+        setRunning(false);
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.message || "Run failed");
+        setRunning(false);
         return;
       }
+      
       setResult(data.data ?? data);
+      
+      if (runMode === "async") {
+        const sid = (data.data ?? data).session_id;
+        if (sid) {
+          pollSession(sid);
+        } else {
+          setRunning(false);
+        }
+      } else {
+        if ((data.data ?? data).status === "hitl") {
+          fetchHitlActions((data.data ?? data).session_id);
+        } else {
+          setRunning(false);
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || "Request failed");
-    } finally {
       setRunning(false);
     }
   };
@@ -206,7 +380,7 @@ export default function AgentsPage() {
         </Alert>
       )}
 
-      <Tabs defaultValue="agents" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="h-9 p-1 gap-1" style={{ background: "oklch(1 0 0 / 4%)", border: "1px solid oklch(1 0 0 / 8%)" }}>
           <TabsTrigger value="agents" className="gap-1.5 text-xs px-4 h-7 data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Bot className="h-3.5 w-3.5" />
@@ -247,7 +421,11 @@ export default function AgentsPage() {
               {agents.map((agent) => (
                 <div
                   key={agent.id}
-                  className="group flex items-start gap-3.5 rounded-xl p-4 transition-all hover:scale-[1.01]"
+                  className="group flex items-start gap-3.5 rounded-xl p-4 transition-all hover:scale-[1.01] cursor-pointer"
+                  onClick={() => {
+                    setSelectedAgent(agent.id);
+                    setActiveTab("playground");
+                  }}
                   style={{
                     background: "oklch(1 0 0 / 3%)",
                     border: "1px solid oklch(1 0 0 / 8%)",
@@ -323,13 +501,14 @@ export default function AgentsPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold uppercase tracking-widest text-white/60">Mode</Label>
-                  <Select value={runMode} onValueChange={(v) => setRunMode(v as "sync" | "async")}>
+                  <Select value={runMode} onValueChange={(v) => setRunMode(v as "sync" | "async" | "stream")}>
                     <SelectTrigger className="h-10 text-xs bg-white/[0.04] border-white/[0.08]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="sync" className="text-xs">Sync — wait for result</SelectItem>
-                      <SelectItem value="async" className="text-xs">Async — get session_id, poll later</SelectItem>
+                      <SelectItem value="async" className="text-xs">Async — run in background</SelectItem>
+                      <SelectItem value="stream" className="text-xs">Stream — view live tokens</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -359,7 +538,7 @@ export default function AgentsPage() {
 
                 <Button
                   className="w-full h-10 gap-2 font-semibold btn-gradient text-white border-0"
-                  onClick={handleRun}
+                  onClick={() => handleRun()}
                   disabled={running || !selectedAgent || !message.trim() || !!genaiError}
                 >
                   {running ? (
@@ -397,10 +576,24 @@ export default function AgentsPage() {
                     <Terminal className="h-3.5 w-3.5 text-white/50" />
                     <span className="text-xs font-semibold text-white/70">Response</span>
                     {result && (
-                      <code className="text-[10px] text-white/40 font-mono">
+                      <code className="text-[10px] text-white/40 font-mono hidden sm:inline">
                         {result.session_id.slice(0, 12)}…
                       </code>
                     )}
+                    <div className="ml-4 flex items-center bg-white/[0.04] rounded-lg p-0.5 border border-white/[0.08]">
+                      <button 
+                        onClick={() => setOutputView("gui")}
+                        className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${outputView === "gui" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/80"}`}
+                      >
+                        GUI
+                      </button>
+                      <button 
+                        onClick={() => setOutputView("json")}
+                        className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${outputView === "json" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/80"}`}
+                      >
+                        JSON
+                      </button>
+                    </div>
                   </div>
                 </div>
                 {result && (
@@ -445,12 +638,12 @@ export default function AgentsPage() {
                           style={{ background: meta.glow, border: `1px solid ${meta.glow}` }}
                         >
                           <Icon
-                            className={`h-4 w-4 ${meta.color} ${result.status === "wip" ? "animate-spin" : ""}`}
+                            className={`h-4 w-4 ${meta.color} ${result.status === "wip" || result.status === "running" ? "animate-spin" : ""}`}
                           />
                           <span className={`text-xs font-semibold capitalize ${meta.color}`}>
                             {result.status}
                           </span>
-                          {result.duration_ms && (
+                          {result.duration_ms !== undefined && (
                             <span className="ml-auto text-[10px] text-white/50 font-mono">
                               {result.duration_ms}ms
                             </span>
@@ -458,12 +651,120 @@ export default function AgentsPage() {
                         </div>
                       );
                     })()}
-                    {/* JSON output */}
-                    <div className="overflow-auto max-h-60 rounded-lg p-3" style={{ background: "oklch(0.04 0.008 268)" }}>
-                      <pre className="text-[11px] font-mono text-emerald-400/80 whitespace-pre-wrap">
-                        {JSON.stringify(result, null, 2)}
-                      </pre>
-                    </div>
+                    
+                    {outputView === "json" ? (
+                      /* JSON output */
+                      <div className="overflow-auto max-h-60 rounded-lg p-3" style={{ background: "oklch(0.04 0.008 268)" }}>
+                        <pre className="text-[11px] font-mono text-emerald-400/80 whitespace-pre-wrap">
+                          {runMode === "stream" && result.status !== "done"
+                            ? result.result?.output
+                            : JSON.stringify(result, null, 2)}
+                        </pre>
+                      </div>
+                    ) : (
+                      /* GUI output */
+                      <div className="space-y-4 max-h-[400px] overflow-auto custom-scrollbar p-1">
+                        {/* HITL Inputs */}
+                        {(() => {
+                          const actionsList = Array.isArray(hitlActions) ? hitlActions : (hitlActions as any)?.actions || [];
+                          if (result.status === "hitl" && actionsList.length > 0) {
+                            return (
+                              <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(0.60 0.20 295 / 15%)", border: "1px solid oklch(0.60 0.20 295 / 30%)" }}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Pause className="h-4 w-4 text-purple-400" />
+                                  <p className="text-xs font-bold uppercase tracking-widest text-purple-300">Human Action Required</p>
+                                </div>
+                                {actionsList.map((action: any, i: number) => {
+                                  const actionKey = action.id || action.action_id || i;
+                                  const hasOptions = Array.isArray(action.options) && action.options.length > 0;
+                                  
+                                  return (
+                                    <div key={i} className="space-y-3 bg-black/20 p-3 rounded-lg border border-white/5">
+                                      <Label className="text-sm font-medium text-purple-100">
+                                        {action.question || action.description || action.instruction || "Provide response"}
+                                      </Label>
+                                      
+                                      {hasOptions ? (
+                                        <div className="flex flex-wrap gap-2">
+                                          {action.options.map((opt: string, optIdx: number) => (
+                                            <Button
+                                              key={optIdx}
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className={`h-8 text-xs border-white/10 hover:bg-purple-500/20 hover:border-purple-500/50 hover:text-white ${hitlInputs[actionKey] === opt ? 'bg-purple-600 border-purple-500 text-white' : 'bg-white/5 text-white/70'}`}
+                                              onClick={() => setHitlInputs(p => ({ ...p, [actionKey]: opt }))}
+                                            >
+                                              {opt}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <Input 
+                                          value={hitlInputs[actionKey] || ""}
+                                          onChange={e => setHitlInputs(p => ({ ...p, [actionKey]: e.target.value }))}
+                                          className="h-9 text-xs bg-white/[0.05] border-white/[0.1] focus-visible:border-purple-500/50 text-white placeholder:text-white/30" 
+                                          placeholder="Enter response..."
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                <Button 
+                                  size="sm" 
+                                  onClick={submitHitl}
+                                  disabled={running}
+                                  className="h-9 w-full bg-purple-600 hover:bg-purple-700 text-white border-0 mt-2"
+                                >
+                                  {running ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                                  Submit Response & Resume
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
+                        {/* Render standard messages */}
+                        {(() => {
+                          if (runMode === "stream" && result.status !== "done") {
+                            return (
+                              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-sm text-white/90">
+                                {result.result?.output || "..."}
+                              </div>
+                            );
+                          }
+
+                          const outputData = result.result?.output || (result as any).output || result.result || result;
+                          const messages = Array.isArray(outputData) ? outputData : Array.isArray(outputData?.messages) ? outputData.messages : null;
+
+                          if (messages) {
+                            return (
+                              <div className="space-y-3">
+                                {messages.map((m: any, i: number) => {
+                                  const isUser = m.role === 'user';
+                                  return (
+                                    <div key={i} className={`p-3 rounded-xl text-sm ${isUser ? 'bg-white/5 border border-white/10 ml-auto w-fit max-w-[80%]' : 'bg-blue-500/10 border border-blue-500/20 mr-auto w-fit max-w-[80%]'}`}>
+                                      <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">{m.role}</div>
+                                      <div className="whitespace-pre-wrap">{typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }
+
+                          if (outputData) {
+                            return (
+                              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-sm text-white/90 whitespace-pre-wrap break-words">
+                                {typeof outputData === 'string' ? outputData : JSON.stringify(outputData, null, 2)}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -505,7 +806,7 @@ export default function AgentsPage() {
                   className="h-6 text-[10px] gap-1.5 text-white/50 hover:text-white px-2"
                   onClick={() => {
                     const curl = `curl -X POST \\
-  '${API_BASE.replace("/api/v1", "")}/api/v1/run/${runMode === "sync" ? "sync" : ""}' \\
+  '${API_BASE.replace("/api/v1", "")}/api/v1/run${runMode === "sync" ? "/sync" : runMode === "stream" ? "/stream" : ""}' \\
   -H 'X-Hope-Token: <your-api-token>' \\
   -H 'Content-Type: application/json' \\
   -d '{
@@ -523,7 +824,7 @@ export default function AgentsPage() {
               <div className="p-4 overflow-x-auto">
                 <pre className="text-[11px] font-mono text-white/70 whitespace-pre">
 {`curl -X POST \\
-  '${API_BASE.replace("/api/v1", "")}/api/v1/run${runMode === "sync" ? "/sync" : ""}' \\
+  '${API_BASE.replace("/api/v1", "")}/api/v1/run${runMode === "sync" ? "/sync" : runMode === "stream" ? "/stream" : ""}' \\
   -H 'X-Hope-Token: <your-api-token>' \\
   -H 'Content-Type: application/json' \\
   -d '{
